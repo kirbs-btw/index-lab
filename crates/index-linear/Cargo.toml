@@ -1,0 +1,10 @@
+[package]
+name = "index-linear"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+index-core = { path = "../index-core" }
+serde = { workspace = true }
+thiserror = { workspace = true }

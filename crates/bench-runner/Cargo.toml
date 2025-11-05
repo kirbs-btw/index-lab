@@ -1,0 +1,12 @@
+[package]
+name = "bench-runner"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+index-core = { path = "../index-core" }
+index-linear = { path = "../index-linear" }
+rand = { workspace = true }
+serde = { workspace = true }
