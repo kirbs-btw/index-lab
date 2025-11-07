@@ -10,3 +10,4 @@ index-core = { path = "../index-core" }
 index-linear = { path = "../index-linear" }
 rand = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
