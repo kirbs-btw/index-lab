@@ -1,8 +1,11 @@
 //! Straight-forward baseline index that performs a linear scan over all vectors.
 
-use anyhow::{ensure, Result};
+use anyhow::{ensure, Context, Result};
 use index_core::{distance, DistanceMetric, ScoredPoint, Vector, VectorIndex};
 use serde::{Deserialize, Serialize};
+use std::fs::File;
+use std::io::{BufReader, BufWriter};
+use std::path::Path;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -43,6 +46,34 @@ impl LinearIndex {
     /// Returns the dimensionality tracked by the index.
     pub fn dimension(&self) -> Option<usize> {
         self.dimension
+    }
+
+    /// Saves the index to a JSON file at the specified path.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the file cannot be created or if serialization fails.
+    pub fn save(&self, path: impl AsRef<Path>) -> Result<()> {
+        let file = File::create(path.as_ref())
+            .with_context(|| format!("failed to create index file at {}", path.as_ref().display()))?;
+        let writer = BufWriter::new(file);
+        serde_json::to_writer_pretty(writer, self)
+            .context("failed to serialize index to JSON")?;
+        Ok(())
+    }
+
+    /// Loads an index from a JSON file at the specified path.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the file cannot be read or if deserialization fails.
+    pub fn load(path: impl AsRef<Path>) -> Result<Self> {
+        let file = File::open(path.as_ref())
+            .with_context(|| format!("failed to open index file at {}", path.as_ref().display()))?;
+        let reader = BufReader::new(file);
+        let index = serde_json::from_reader(reader)
+            .with_context(|| format!("failed to deserialize index from {}", path.as_ref().display()))?;
+        Ok(index)
     }
 }
 
@@ -93,6 +124,7 @@ impl VectorIndex for LinearIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::env::temp_dir;
 
     #[test]
     fn insert_and_search_returns_expected_ids() {
@@ -104,5 +136,36 @@ mod tests {
         let result = index.search(&vec![0.0, 0.0], 2).unwrap();
         let ids: Vec<usize> = result.into_iter().map(|item| item.id).collect();
         assert_eq!(ids, vec![0, 1]);
+    }
+
+    #[test]
+    fn save_and_load_preserves_index() {
+        let mut original_index = LinearIndex::new(DistanceMetric::Cosine);
+        original_index.insert(0, vec![1.0, 0.0]).unwrap();
+        original_index.insert(1, vec![0.0, 1.0]).unwrap();
+        original_index.insert(2, vec![1.0, 1.0]).unwrap();
+
+        let mut temp_path = temp_dir();
+        temp_path.push(format!("test_index_{}.json", std::process::id()));
+
+        // Save the index
+        original_index.save(&temp_path).unwrap();
+
+        // Load the index
+        let loaded_index = LinearIndex::load(&temp_path).unwrap();
+
+        // Verify the loaded index has the same properties
+        assert_eq!(loaded_index.metric(), original_index.metric());
+        assert_eq!(loaded_index.len(), original_index.len());
+        assert_eq!(loaded_index.dimension(), original_index.dimension());
+
+        // Verify search results are identical
+        let query = vec![1.0, 0.0];
+        let original_results = original_index.search(&query, 2).unwrap();
+        let loaded_results = loaded_index.search(&query, 2).unwrap();
+        assert_eq!(original_results, loaded_results);
+
+        // Clean up
+        let _ = std::fs::remove_file(&temp_path);
     }
 }
