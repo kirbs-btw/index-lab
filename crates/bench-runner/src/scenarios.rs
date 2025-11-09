@@ -33,14 +33,9 @@ pub struct ScenarioDetails {
 
 impl ScenarioKind {
     pub fn details(self) -> ScenarioDetails {
-        let slug = self
-            .to_possible_value()
-            .expect("scenario variant provides slug")
-            .get_name();
-
         match self {
             ScenarioKind::Smoke => ScenarioDetails {
-                slug,
+                slug: "smoke",
                 label: "Smoke test (1k pts)",
                 description: "Quick correctness sanity check that fits easily into CI.",
                 config: ScenarioConfig {
@@ -52,7 +47,7 @@ impl ScenarioKind {
                 },
             },
             ScenarioKind::RecallBaseline => ScenarioDetails {
-                slug,
+                slug: "recall-baseline",
                 label: "Recall baseline (10k pts)",
                 description: "Mid-sized Euclidean dataset for evaluating recall vs. latency.",
                 config: ScenarioConfig {
@@ -64,7 +59,7 @@ impl ScenarioKind {
                 },
             },
             ScenarioKind::CosineQuality => ScenarioDetails {
-                slug,
+                slug: "cosine-quality",
                 label: "Cosine quality (15k pts)",
                 description: "Cosine distance case with higher dimensionality for quality sweeps.",
                 config: ScenarioConfig {
@@ -76,7 +71,7 @@ impl ScenarioKind {
                 },
             },
             ScenarioKind::IoHeavy => ScenarioDetails {
-                slug,
+                slug: "io-heavy",
                 label: "I/O heavy (50k pts)",
                 description: "Larger memory-bound setup to observe throughput and cache behavior.",
                 config: ScenarioConfig {

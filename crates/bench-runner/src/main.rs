@@ -8,13 +8,56 @@ use std::{
 };
 
 use anyhow::{ensure, Context, Result};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use index_core::{
     generate_query_set, generate_uniform_dataset, DistanceMetric, ScoredPoint, Vector, VectorIndex,
 };
 use index_linear::LinearIndex;
+use index_hnsw::HnswIndex;
 use serde::Serialize;
 use scenarios::{ScenarioDetails, ScenarioKind};
+
+/// Wrapper enum for different index types
+enum IndexWrapper {
+    Linear(LinearIndex),
+    Hnsw(HnswIndex),
+}
+
+impl VectorIndex for IndexWrapper {
+    fn metric(&self) -> DistanceMetric {
+        match self {
+            IndexWrapper::Linear(idx) => idx.metric(),
+            IndexWrapper::Hnsw(idx) => idx.metric(),
+        }
+    }
+
+    fn len(&self) -> usize {
+        match self {
+            IndexWrapper::Linear(idx) => idx.len(),
+            IndexWrapper::Hnsw(idx) => idx.len(),
+        }
+    }
+
+    fn insert(&mut self, id: usize, vector: Vector) -> Result<()> {
+        match self {
+            IndexWrapper::Linear(idx) => idx.insert(id, vector),
+            IndexWrapper::Hnsw(idx) => idx.insert(id, vector),
+        }
+    }
+
+    fn search(&self, query: &Vector, limit: usize) -> Result<Vec<ScoredPoint>> {
+        match self {
+            IndexWrapper::Linear(idx) => idx.search(query, limit),
+            IndexWrapper::Hnsw(idx) => idx.search(query, limit),
+        }
+    }
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+enum IndexType {
+    Linear,
+    Hnsw,
+}
 
 #[derive(Debug, Parser)]
 #[command(about = "Lightweight harness for experimenting with vector indexes")]
@@ -34,6 +77,9 @@ struct Cli {
     /// Distance metric to use (euclidean | cosine)
     #[arg(long, default_value = "euclidean", value_parser = parse_metric)]
     metric: DistanceMetric,
+    /// Index type to use (linear | hnsw)
+    #[arg(long, default_value = "linear", value_enum)]
+    index_type: IndexType,
     /// RNG seed used for dataset generation
     #[arg(long, default_value = "42")]
     seed: u64,
@@ -49,6 +95,12 @@ struct Cli {
     /// Export timing + configuration data as JSON
     #[arg(long)]
     report_json: Option<PathBuf>,
+    /// Save the built index to a JSON file
+    #[arg(long)]
+    save_index: Option<PathBuf>,
+    /// Load an index from a JSON file instead of building it
+    #[arg(long)]
+    load_index: Option<PathBuf>,
 }
 
 fn parse_metric(value: &str) -> Result<DistanceMetric, String> {
@@ -98,23 +150,113 @@ fn main() -> Result<()> {
         println!("Wrote test data to {}", path.display());
     }
 
-    let mut index = LinearIndex::new(runtime.metric);
-    let build_start = Instant::now();
-    index.build(dataset)?;
-    let build_time = build_start.elapsed();
+    // Create or load index based on type
+    match cli.index_type {
+        IndexType::Linear => {
+            let (index, build_time) = if let Some(load_path) = cli.load_index.as_deref() {
+                println!("Loading linear index from {}...", load_path.display());
+                let load_start = Instant::now();
+                let loaded_index = LinearIndex::load(load_path)
+                    .with_context(|| format!("failed to load index from {}", load_path.display()))?;
+                let load_time = load_start.elapsed();
+                println!("Loaded index in {:.2?} ({} vectors, metric: {:?})", 
+                         load_time, loaded_index.len(), loaded_index.metric());
+                (IndexWrapper::Linear(loaded_index), load_time)
+            } else {
+                let mut index = LinearIndex::new(runtime.metric);
+                let build_start = Instant::now();
+                index.build(dataset.clone())?;
+                let build_time = build_start.elapsed();
+                (IndexWrapper::Linear(index), build_time)
+            };
 
-    let mut total_search_time = 0u128;
-    let mut first_result: Option<Vec<ScoredPoint>> = None;
-    for query in &queries {
-        let search_start = Instant::now();
-        let result = index.search(query, runtime.limit)?;
-        total_search_time += search_start.elapsed().as_micros();
-        if first_result.is_none() {
-            first_result = Some(result.clone());
+            // Run search
+            let mut total_search_time = 0u128;
+            let mut first_result: Option<Vec<ScoredPoint>> = None;
+            for query in &queries {
+                let search_start = Instant::now();
+                let result = index.search(query, runtime.limit)?;
+                total_search_time += search_start.elapsed().as_micros();
+                if first_result.is_none() {
+                    first_result = Some(result.clone());
+                }
+            }
+
+            // Save if requested
+            if let Some(save_path) = cli.save_index.as_deref() {
+                match &index {
+                    IndexWrapper::Linear(idx) => {
+                        idx.save(save_path)
+                            .with_context(|| format!("failed to save index to {}", save_path.display()))?;
+                        println!("Saved linear index to {} ({} vectors)", save_path.display(), idx.len());
+                    }
+                    _ => unreachable!(),
+                }
+            }
+
+            print_results(&index, &first_result, build_time, total_search_time, &runtime, &cli)?;
+        }
+        IndexType::Hnsw => {
+            let (index, build_time) = if let Some(load_path) = cli.load_index.as_deref() {
+                println!("Loading HNSW index from {}...", load_path.display());
+                let load_start = Instant::now();
+                let loaded_index = HnswIndex::load(load_path)
+                    .with_context(|| format!("failed to load index from {}", load_path.display()))?;
+                let load_time = load_start.elapsed();
+                println!("Loaded index in {:.2?} ({} vectors, metric: {:?})", 
+                         load_time, loaded_index.len(), loaded_index.metric());
+                (IndexWrapper::Hnsw(loaded_index), load_time)
+            } else {
+                let mut index = HnswIndex::with_defaults(runtime.metric);
+                let build_start = Instant::now();
+                index.build(dataset.clone())?;
+                let build_time = build_start.elapsed();
+                (IndexWrapper::Hnsw(index), build_time)
+            };
+
+            // Run search
+            let mut total_search_time = 0u128;
+            let mut first_result: Option<Vec<ScoredPoint>> = None;
+            for query in &queries {
+                let search_start = Instant::now();
+                let result = index.search(query, runtime.limit)?;
+                total_search_time += search_start.elapsed().as_micros();
+                if first_result.is_none() {
+                    first_result = Some(result.clone());
+                }
+            }
+
+            // Save if requested
+            if let Some(save_path) = cli.save_index.as_deref() {
+                match &index {
+                    IndexWrapper::Hnsw(idx) => {
+                        idx.save(save_path)
+                            .with_context(|| format!("failed to save index to {}", save_path.display()))?;
+                        println!("Saved HNSW index to {} ({} vectors)", save_path.display(), idx.len());
+                    }
+                    _ => unreachable!(),
+                }
+            }
+
+            print_results(&index, &first_result, build_time, total_search_time, &runtime, &cli)?;
         }
     }
 
-    if let Some(first) = &first_result {
+    // Note: report_json is handled in print_results if needed
+    // We calculate stats there to have access to search time
+
+    Ok(())
+}
+
+fn print_results(
+    index: &IndexWrapper,
+    first_result: &Option<Vec<ScoredPoint>>,
+    build_time: Duration,
+    total_search_time: u128,
+    runtime: &RuntimeConfig,
+    cli: &Cli,
+) -> Result<()> {
+    if let Some(first) = first_result {
         println!(
             "First query result ids: {:?}",
             first.iter().map(|point| point.id).collect::<Vec<_>>()
@@ -132,13 +274,20 @@ fn main() -> Result<()> {
         .scenario_slug
         .map(|slug| format!(" | Scenario: {slug}"))
         .unwrap_or_default();
+    
+    let index_type_str = match index {
+        IndexWrapper::Linear(_) => "linear",
+        IndexWrapper::Hnsw(_) => "hnsw",
+    };
+    
     println!(
-        "Build: {:.2?} | Avg search: {:.2} us | QPS: {:.1} | Dataset: {:.2} MiB | Metric: {:?} | Points: {} | Queries: {} | Dim: {} | Limit: {}{}",
+        "Build: {:.2?} | Avg search: {:.2} us | QPS: {:.1} | Dataset: {:.2} MiB | Metric: {:?} | Index: {} | Points: {} | Queries: {} | Dim: {} | Limit: {}{}",
         stats.build_time,
         stats.avg_search_micros,
         stats.queries_per_second,
         stats.dataset_bytes as f64 / (1024.0 * 1024.0),
         runtime.metric,
+        index_type_str,
         runtime.points,
         runtime.queries,
         runtime.dimension,
@@ -147,7 +296,7 @@ fn main() -> Result<()> {
     );
 
     if let Some(path) = cli.report_json.as_deref() {
-        write_report(path, &runtime, &stats)?;
+        write_report(path, runtime, &stats)?;
         println!("Wrote benchmark report to {}", path.display());
     }
 
