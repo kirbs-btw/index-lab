@@ -16,6 +16,7 @@ use index_linear::LinearIndex;
 use index_hnsw::HnswIndex;
 use serde::Serialize;
 use scenarios::{ScenarioDetails, ScenarioKind};
+use std::collections::HashSet;
 
 /// Wrapper enum for different index types
 enum IndexWrapper {
@@ -111,6 +112,75 @@ fn parse_metric(value: &str) -> Result<DistanceMetric, String> {
     }
 }
 
+/// Computes ground truth results using exhaustive linear search
+fn compute_ground_truth(
+    dataset: &[(usize, Vector)],
+    queries: &[Vector],
+    metric: DistanceMetric,
+    limit: usize,
+) -> Result<Vec<Vec<ScoredPoint>>> {
+    let mut ground_truth_index = LinearIndex::new(metric);
+    ground_truth_index.build(dataset.iter().cloned())?;
+    
+    let mut ground_truth_results = Vec::with_capacity(queries.len());
+    for query in queries {
+        let result = ground_truth_index.search(query, limit)?;
+        ground_truth_results.push(result);
+    }
+    
+    Ok(ground_truth_results)
+}
+
+/// Calculates recall@k by comparing approximate results with ground truth
+fn calculate_recall(
+    approximate_results: &[ScoredPoint],
+    ground_truth: &[ScoredPoint],
+    k: usize,
+) -> f64 {
+    if ground_truth.is_empty() || k == 0 {
+        return 0.0;
+    }
+    
+    // Create a set of IDs from ground truth (top k)
+    let ground_truth_ids: HashSet<usize> = ground_truth
+        .iter()
+        .take(k)
+        .map(|point| point.id)
+        .collect();
+    
+    // Count how many of the top k ground truth IDs are in approximate results
+    let found_count = approximate_results
+        .iter()
+        .take(k)
+        .filter(|point| ground_truth_ids.contains(&point.id))
+        .count();
+    
+    found_count as f64 / k.min(ground_truth.len()) as f64
+}
+
+/// Computes recall metrics for all queries
+fn compute_recall_metrics(
+    approximate_results: &[Vec<ScoredPoint>],
+    ground_truth: &[Vec<ScoredPoint>],
+    limit: usize,
+) -> (f64, f64, f64) {
+    if approximate_results.len() != ground_truth.len() {
+        return (0.0, 0.0, 0.0);
+    }
+    
+    let mut recalls = Vec::with_capacity(approximate_results.len());
+    for (approx, truth) in approximate_results.iter().zip(ground_truth.iter()) {
+        let recall = calculate_recall(approx, truth, limit);
+        recalls.push(recall);
+    }
+    
+    let avg_recall = recalls.iter().sum::<f64>() / recalls.len() as f64;
+    let min_recall = recalls.iter().copied().fold(f64::INFINITY, f64::min);
+    let max_recall = recalls.iter().copied().fold(0.0, f64::max);
+    
+    (avg_recall, min_recall, max_recall)
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -172,15 +242,32 @@ fn main() -> Result<()> {
 
             // Run search
             let mut total_search_time = 0u128;
+            let mut all_results = Vec::with_capacity(queries.len());
             let mut first_result: Option<Vec<ScoredPoint>> = None;
             for query in &queries {
                 let search_start = Instant::now();
                 let result = index.search(query, runtime.limit)?;
                 total_search_time += search_start.elapsed().as_micros();
+                all_results.push(result.clone());
                 if first_result.is_none() {
-                    first_result = Some(result.clone());
+                    first_result = Some(result);
                 }
             }
+
+            // Compute ground truth and recall (skip for linear index as it's already exhaustive)
+            let recall_metrics = if matches!(cli.index_type, IndexType::Linear) {
+                // Linear index is exhaustive, so recall is always 1.0
+                (1.0, 1.0, 1.0)
+            } else {
+                println!("Computing ground truth with exhaustive search...");
+                let ground_truth_start = Instant::now();
+                let ground_truth = compute_ground_truth(&dataset, &queries, runtime.metric, runtime.limit)?;
+                let ground_truth_time = ground_truth_start.elapsed();
+                println!("Ground truth computed in {:.2?}", ground_truth_time);
+                
+                let (avg_recall, min_recall, max_recall) = compute_recall_metrics(&all_results, &ground_truth, runtime.limit);
+                (avg_recall, min_recall, max_recall)
+            };
 
             // Save if requested
             if let Some(save_path) = cli.save_index.as_deref() {
@@ -194,7 +281,7 @@ fn main() -> Result<()> {
                 }
             }
 
-            print_results(&index, &first_result, build_time, total_search_time, &runtime, &cli)?;
+            print_results(&index, &first_result, build_time, total_search_time, &runtime, &cli, recall_metrics)?;
         }
         IndexType::Hnsw => {
             let (index, build_time) = if let Some(load_path) = cli.load_index.as_deref() {
@@ -216,15 +303,26 @@ fn main() -> Result<()> {
 
             // Run search
             let mut total_search_time = 0u128;
+            let mut all_results = Vec::with_capacity(queries.len());
             let mut first_result: Option<Vec<ScoredPoint>> = None;
             for query in &queries {
                 let search_start = Instant::now();
                 let result = index.search(query, runtime.limit)?;
                 total_search_time += search_start.elapsed().as_micros();
+                all_results.push(result.clone());
                 if first_result.is_none() {
-                    first_result = Some(result.clone());
+                    first_result = Some(result);
                 }
             }
+
+            // Compute ground truth and recall
+            println!("Computing ground truth with exhaustive search...");
+            let ground_truth_start = Instant::now();
+            let ground_truth = compute_ground_truth(&dataset, &queries, runtime.metric, runtime.limit)?;
+            let ground_truth_time = ground_truth_start.elapsed();
+            println!("Ground truth computed in {:.2?}", ground_truth_time);
+            
+            let (avg_recall, min_recall, max_recall) = compute_recall_metrics(&all_results, &ground_truth, runtime.limit);
 
             // Save if requested
             if let Some(save_path) = cli.save_index.as_deref() {
@@ -238,7 +336,7 @@ fn main() -> Result<()> {
                 }
             }
 
-            print_results(&index, &first_result, build_time, total_search_time, &runtime, &cli)?;
+            print_results(&index, &first_result, build_time, total_search_time, &runtime, &cli, (avg_recall, min_recall, max_recall))?;
         }
     }
 
@@ -255,6 +353,7 @@ fn print_results(
     total_search_time: u128,
     runtime: &RuntimeConfig,
     cli: &Cli,
+    recall_metrics: (f64, f64, f64),
 ) -> Result<()> {
     if let Some(first) = first_result {
         println!(
@@ -280,6 +379,8 @@ fn print_results(
         IndexWrapper::Hnsw(_) => "hnsw",
     };
     
+    let (avg_recall, min_recall, max_recall) = recall_metrics;
+    
     println!(
         "Build: {:.2?} | Avg search: {:.2} us | QPS: {:.1} | Dataset: {:.2} MiB | Metric: {:?} | Index: {} | Points: {} | Queries: {} | Dim: {} | Limit: {}{}",
         stats.build_time,
@@ -294,9 +395,16 @@ fn print_results(
         runtime.limit,
         scenario_note
     );
+    
+    if !matches!(index, IndexWrapper::Linear(_)) {
+        println!(
+            "Recall@{}: avg={:.4} | min={:.4} | max={:.4}",
+            runtime.limit, avg_recall, min_recall, max_recall
+        );
+    }
 
     if let Some(path) = cli.report_json.as_deref() {
-        write_report(path, runtime, &stats)?;
+        write_report(path, runtime, &stats, recall_metrics)?;
         println!("Wrote benchmark report to {}", path.display());
     }
 
@@ -382,11 +490,12 @@ fn estimate_dataset_bytes(dimension: usize, points: usize) -> usize {
         .saturating_mul(std::mem::size_of::<f32>())
 }
 
-fn write_report(path: &Path, runtime: &RuntimeConfig, stats: &BenchmarkStats) -> Result<()> {
+fn write_report(path: &Path, runtime: &RuntimeConfig, stats: &BenchmarkStats, recall_metrics: (f64, f64, f64)) -> Result<()> {
     #[derive(Serialize)]
     struct ReportPayload<'a> {
         config: ReportConfig<'a>,
         timings: ReportTimings,
+        recall: ReportRecall,
     }
 
     #[derive(Serialize)]
@@ -410,6 +519,16 @@ fn write_report(path: &Path, runtime: &RuntimeConfig, stats: &BenchmarkStats) ->
         queries_per_second: f64,
     }
 
+    #[derive(Serialize)]
+    struct ReportRecall {
+        avg: f64,
+        min: f64,
+        max: f64,
+        k: usize,
+    }
+
+    let (avg_recall, min_recall, max_recall) = recall_metrics;
+    
     let payload = ReportPayload {
         config: ReportConfig {
             scenario: runtime.scenario_slug,
@@ -427,6 +546,12 @@ fn write_report(path: &Path, runtime: &RuntimeConfig, stats: &BenchmarkStats) ->
             build_ms: stats.build_time.as_secs_f64() * 1_000.0,
             avg_search_micros: stats.avg_search_micros,
             queries_per_second: stats.queries_per_second,
+        },
+        recall: ReportRecall {
+            avg: avg_recall,
+            min: min_recall,
+            max: max_recall,
+            k: runtime.limit,
         },
     };
 
