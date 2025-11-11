@@ -3,6 +3,7 @@ members = [
     "crates/index-core",
     "crates/index-linear",
     "crates/index-hnsw",
+    "crates/index-ivf",
     "crates/bench-runner",
 ]
 resolver = "2"
