@@ -1,16 +1,13 @@
 [package]
-name = "bench-runner"
+name = "index-pq"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 anyhow = { workspace = true }
-clap = { workspace = true }
 index-core = { path = "../index-core" }
-index-linear = { path = "../index-linear" }
-index-hnsw = { path = "../index-hnsw" }
-index-ivf = { path = "../index-ivf" }
-index-pq = { path = "../index-pq" }
 rand = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+thiserror = { workspace = true }
+

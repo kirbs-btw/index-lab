@@ -15,6 +15,7 @@ use index_core::{
 use index_linear::LinearIndex;
 use index_hnsw::HnswIndex;
 use index_ivf::IvfIndex;
+use index_pq::PqIndex;
 use serde::Serialize;
 use scenarios::{ScenarioDetails, ScenarioKind};
 use std::collections::HashSet;
@@ -24,6 +25,7 @@ enum IndexWrapper {
     Linear(LinearIndex),
     Hnsw(HnswIndex),
     Ivf(IvfIndex),
+    Pq(PqIndex),
 }
 
 impl VectorIndex for IndexWrapper {
@@ -32,6 +34,7 @@ impl VectorIndex for IndexWrapper {
             IndexWrapper::Linear(idx) => idx.metric(),
             IndexWrapper::Hnsw(idx) => idx.metric(),
             IndexWrapper::Ivf(idx) => idx.metric(),
+            IndexWrapper::Pq(idx) => idx.metric(),
         }
     }
 
@@ -40,6 +43,7 @@ impl VectorIndex for IndexWrapper {
             IndexWrapper::Linear(idx) => idx.len(),
             IndexWrapper::Hnsw(idx) => idx.len(),
             IndexWrapper::Ivf(idx) => idx.len(),
+            IndexWrapper::Pq(idx) => idx.len(),
         }
     }
 
@@ -48,6 +52,7 @@ impl VectorIndex for IndexWrapper {
             IndexWrapper::Linear(idx) => idx.insert(id, vector),
             IndexWrapper::Hnsw(idx) => idx.insert(id, vector),
             IndexWrapper::Ivf(idx) => idx.insert(id, vector),
+            IndexWrapper::Pq(idx) => idx.insert(id, vector),
         }
     }
 
@@ -56,6 +61,7 @@ impl VectorIndex for IndexWrapper {
             IndexWrapper::Linear(idx) => idx.search(query, limit),
             IndexWrapper::Hnsw(idx) => idx.search(query, limit),
             IndexWrapper::Ivf(idx) => idx.search(query, limit),
+            IndexWrapper::Pq(idx) => idx.search(query, limit),
         }
     }
 }
@@ -65,6 +71,7 @@ enum IndexType {
     Linear,
     Hnsw,
     Ivf,
+    Pq,
 }
 
 #[derive(Debug, Parser)]
@@ -85,7 +92,7 @@ struct Cli {
     /// Distance metric to use (euclidean | cosine)
     #[arg(long, default_value = "euclidean", value_parser = parse_metric)]
     metric: DistanceMetric,
-    /// Index type to use (linear | hnsw | ivf)
+    /// Index type to use (linear | hnsw | ivf | pq)
     #[arg(long, default_value = "linear", value_enum)]
     index_type: IndexType,
     /// RNG seed used for dataset generation
@@ -400,6 +407,61 @@ fn main() -> Result<()> {
 
             print_results(&index, &first_result, build_time, total_search_time, &runtime, &cli, (avg_recall, min_recall, max_recall))?;
         }
+        IndexType::Pq => {
+            let (index, build_time) = if let Some(load_path) = cli.load_index.as_deref() {
+                println!("Loading PQ index from {}...", load_path.display());
+                let load_start = Instant::now();
+                let loaded_index = PqIndex::load(load_path)
+                    .with_context(|| format!("failed to load index from {}", load_path.display()))?;
+                let load_time = load_start.elapsed();
+                println!("Loaded index in {:.2?} ({} vectors, metric: {:?})", 
+                         load_time, loaded_index.len(), loaded_index.metric());
+                (IndexWrapper::Pq(loaded_index), load_time)
+            } else {
+                let mut index = PqIndex::with_defaults(runtime.metric);
+                let build_start = Instant::now();
+                index.build(dataset.clone())?;
+                let build_time = build_start.elapsed();
+                (IndexWrapper::Pq(index), build_time)
+            };
+
+            // Run search
+            let mut total_search_time = 0u128;
+            let mut all_results = Vec::with_capacity(queries.len());
+            let mut first_result: Option<Vec<ScoredPoint>> = None;
+            for query in &queries {
+                let search_start = Instant::now();
+                let result = index.search(query, runtime.limit)?;
+                total_search_time += search_start.elapsed().as_micros();
+                all_results.push(result.clone());
+                if first_result.is_none() {
+                    first_result = Some(result);
+                }
+            }
+
+            // Compute ground truth and recall
+            println!("Computing ground truth with exhaustive search...");
+            let ground_truth_start = Instant::now();
+            let ground_truth = compute_ground_truth(&dataset, &queries, runtime.metric, runtime.limit)?;
+            let ground_truth_time = ground_truth_start.elapsed();
+            println!("Ground truth computed in {:.2?}", ground_truth_time);
+            
+            let (avg_recall, min_recall, max_recall) = compute_recall_metrics(&all_results, &ground_truth, runtime.limit);
+
+            // Save if requested
+            if let Some(save_path) = cli.save_index.as_deref() {
+                match &index {
+                    IndexWrapper::Pq(idx) => {
+                        idx.save(save_path)
+                            .with_context(|| format!("failed to save index to {}", save_path.display()))?;
+                        println!("Saved PQ index to {} ({} vectors)", save_path.display(), idx.len());
+                    }
+                    _ => unreachable!(),
+                }
+            }
+
+            print_results(&index, &first_result, build_time, total_search_time, &runtime, &cli, (avg_recall, min_recall, max_recall))?;
+        }
     }
 
     // Note: report_json is handled in print_results if needed
@@ -440,6 +502,7 @@ fn print_results(
         IndexWrapper::Linear(_) => "linear",
         IndexWrapper::Hnsw(_) => "hnsw",
         IndexWrapper::Ivf(_) => "ivf",
+        IndexWrapper::Pq(_) => "pq",
     };
     
     let (avg_recall, min_recall, max_recall) = recall_metrics;
