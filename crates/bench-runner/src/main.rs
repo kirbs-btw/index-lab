@@ -195,6 +195,67 @@ fn compute_recall_metrics(
     (avg_recall, min_recall, max_recall)
 }
 
+/// Generic benchmark runner that handles common logic for all index types
+fn run_benchmark<F1, F2, F3>(
+    _index_name: &str,
+    load_fn: F1,
+    build_fn: F2,
+    save_fn: F3,
+    is_exhaustive: bool,
+    dataset: &[(usize, Vector)],
+    queries: &[Vector],
+    runtime: &RuntimeConfig,
+    cli: &Cli,
+) -> Result<()>
+where
+    F1: FnOnce(&Path) -> Result<(IndexWrapper, Duration)>,
+    F2: FnOnce() -> Result<(IndexWrapper, Duration)>,
+    F3: FnOnce(&IndexWrapper) -> Result<()>,
+{
+    // Load or build index
+    let (index, build_time) = if let Some(load_path) = cli.load_index.as_deref() {
+        load_fn(load_path)?
+    } else {
+        build_fn()?
+    };
+
+    // Run search
+    let mut total_search_time = 0u128;
+    let mut all_results = Vec::with_capacity(queries.len());
+    let mut first_result: Option<Vec<ScoredPoint>> = None;
+    for query in queries {
+        let search_start = Instant::now();
+        let result = index.search(query, runtime.limit)?;
+        total_search_time += search_start.elapsed().as_micros();
+        all_results.push(result.clone());
+        if first_result.is_none() {
+            first_result = Some(result);
+        }
+    }
+
+    // Compute ground truth and recall
+    let recall_metrics = if is_exhaustive {
+        // Exhaustive index (linear) always has perfect recall
+        (1.0, 1.0, 1.0)
+    } else {
+        println!("Computing ground truth with exhaustive search...");
+        let ground_truth_start = Instant::now();
+        let ground_truth = compute_ground_truth(dataset, queries, runtime.metric, runtime.limit)?;
+        let ground_truth_time = ground_truth_start.elapsed();
+        println!("Ground truth computed in {:.2?}", ground_truth_time);
+        
+        let (avg_recall, min_recall, max_recall) = compute_recall_metrics(&all_results, &ground_truth, runtime.limit);
+        (avg_recall, min_recall, max_recall)
+    };
+
+    // Save if requested
+    save_fn(&index)?;
+
+    print_results(&index, &first_result, build_time, total_search_time, runtime, cli, recall_metrics)?;
+
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -234,233 +295,155 @@ fn main() -> Result<()> {
         println!("Wrote test data to {}", path.display());
     }
 
-    // Create or load index based on type
+    // Run benchmark with the selected index type
     match cli.index_type {
         IndexType::Linear => {
-            let (index, build_time) = if let Some(load_path) = cli.load_index.as_deref() {
-                println!("Loading linear index from {}...", load_path.display());
-                let load_start = Instant::now();
-                let loaded_index = LinearIndex::load(load_path)
-                    .with_context(|| format!("failed to load index from {}", load_path.display()))?;
-                let load_time = load_start.elapsed();
-                println!("Loaded index in {:.2?} ({} vectors, metric: {:?})", 
-                         load_time, loaded_index.len(), loaded_index.metric());
-                (IndexWrapper::Linear(loaded_index), load_time)
-            } else {
-                let mut index = LinearIndex::new(runtime.metric);
-                let build_start = Instant::now();
-                index.build(dataset.clone())?;
-                let build_time = build_start.elapsed();
-                (IndexWrapper::Linear(index), build_time)
-            };
-
-            // Run search
-            let mut total_search_time = 0u128;
-            let mut all_results = Vec::with_capacity(queries.len());
-            let mut first_result: Option<Vec<ScoredPoint>> = None;
-            for query in &queries {
-                let search_start = Instant::now();
-                let result = index.search(query, runtime.limit)?;
-                total_search_time += search_start.elapsed().as_micros();
-                all_results.push(result.clone());
-                if first_result.is_none() {
-                    first_result = Some(result);
-                }
-            }
-
-            // Compute ground truth and recall (skip for linear index as it's already exhaustive)
-            let recall_metrics = if matches!(cli.index_type, IndexType::Linear) {
-                // Linear index is exhaustive, so recall is always 1.0
-                (1.0, 1.0, 1.0)
-            } else {
-                println!("Computing ground truth with exhaustive search...");
-                let ground_truth_start = Instant::now();
-                let ground_truth = compute_ground_truth(&dataset, &queries, runtime.metric, runtime.limit)?;
-                let ground_truth_time = ground_truth_start.elapsed();
-                println!("Ground truth computed in {:.2?}", ground_truth_time);
-                
-                let (avg_recall, min_recall, max_recall) = compute_recall_metrics(&all_results, &ground_truth, runtime.limit);
-                (avg_recall, min_recall, max_recall)
-            };
-
-            // Save if requested
-            if let Some(save_path) = cli.save_index.as_deref() {
-                match &index {
-                    IndexWrapper::Linear(idx) => {
-                        idx.save(save_path)
-                            .with_context(|| format!("failed to save index to {}", save_path.display()))?;
-                        println!("Saved linear index to {} ({} vectors)", save_path.display(), idx.len());
+            run_benchmark(
+                "linear",
+                |load_path| {
+                    println!("Loading linear index from {}...", load_path.display());
+                    let load_start = Instant::now();
+                    let loaded = LinearIndex::load(load_path)
+                        .with_context(|| format!("failed to load index from {}", load_path.display()))?;
+                    let load_time = load_start.elapsed();
+                    println!("Loaded index in {:.2?} ({} vectors, metric: {:?})", 
+                             load_time, loaded.len(), loaded.metric());
+                    Ok((IndexWrapper::Linear(loaded), load_time))
+                },
+                || {
+                    let mut index = LinearIndex::new(runtime.metric);
+                    let build_start = Instant::now();
+                    index.build(dataset.clone())?;
+                    let build_time = build_start.elapsed();
+                    Ok((IndexWrapper::Linear(index), build_time))
+                },
+                |idx| {
+                    if let Some(save_path) = cli.save_index.as_deref() {
+                        if let IndexWrapper::Linear(inner) = idx {
+                            inner.save(save_path)
+                                .with_context(|| format!("failed to save index to {}", save_path.display()))?;
+                            println!("Saved linear index to {} ({} vectors)", save_path.display(), inner.len());
+                        }
                     }
-                    _ => unreachable!(),
-                }
-            }
-
-            print_results(&index, &first_result, build_time, total_search_time, &runtime, &cli, recall_metrics)?;
+                    Ok(())
+                },
+                true, // is_exhaustive
+                &dataset,
+                &queries,
+                &runtime,
+                &cli,
+            )?;
         }
         IndexType::Hnsw => {
-            let (index, build_time) = if let Some(load_path) = cli.load_index.as_deref() {
-                println!("Loading HNSW index from {}...", load_path.display());
-                let load_start = Instant::now();
-                let loaded_index = HnswIndex::load(load_path)
-                    .with_context(|| format!("failed to load index from {}", load_path.display()))?;
-                let load_time = load_start.elapsed();
-                println!("Loaded index in {:.2?} ({} vectors, metric: {:?})", 
-                         load_time, loaded_index.len(), loaded_index.metric());
-                (IndexWrapper::Hnsw(loaded_index), load_time)
-            } else {
-                let mut index = HnswIndex::with_defaults(runtime.metric);
-                let build_start = Instant::now();
-                index.build(dataset.clone())?;
-                let build_time = build_start.elapsed();
-                (IndexWrapper::Hnsw(index), build_time)
-            };
-
-            // Run search
-            let mut total_search_time = 0u128;
-            let mut all_results = Vec::with_capacity(queries.len());
-            let mut first_result: Option<Vec<ScoredPoint>> = None;
-            for query in &queries {
-                let search_start = Instant::now();
-                let result = index.search(query, runtime.limit)?;
-                total_search_time += search_start.elapsed().as_micros();
-                all_results.push(result.clone());
-                if first_result.is_none() {
-                    first_result = Some(result);
-                }
-            }
-
-            // Compute ground truth and recall
-            println!("Computing ground truth with exhaustive search...");
-            let ground_truth_start = Instant::now();
-            let ground_truth = compute_ground_truth(&dataset, &queries, runtime.metric, runtime.limit)?;
-            let ground_truth_time = ground_truth_start.elapsed();
-            println!("Ground truth computed in {:.2?}", ground_truth_time);
-            
-            let (avg_recall, min_recall, max_recall) = compute_recall_metrics(&all_results, &ground_truth, runtime.limit);
-
-            // Save if requested
-            if let Some(save_path) = cli.save_index.as_deref() {
-                match &index {
-                    IndexWrapper::Hnsw(idx) => {
-                        idx.save(save_path)
-                            .with_context(|| format!("failed to save index to {}", save_path.display()))?;
-                        println!("Saved HNSW index to {} ({} vectors)", save_path.display(), idx.len());
+            run_benchmark(
+                "HNSW",
+                |load_path| {
+                    println!("Loading HNSW index from {}...", load_path.display());
+                    let load_start = Instant::now();
+                    let loaded = HnswIndex::load(load_path)
+                        .with_context(|| format!("failed to load index from {}", load_path.display()))?;
+                    let load_time = load_start.elapsed();
+                    println!("Loaded index in {:.2?} ({} vectors, metric: {:?})", 
+                             load_time, loaded.len(), loaded.metric());
+                    Ok((IndexWrapper::Hnsw(loaded), load_time))
+                },
+                || {
+                    let mut index = HnswIndex::with_defaults(runtime.metric);
+                    let build_start = Instant::now();
+                    index.build(dataset.clone())?;
+                    let build_time = build_start.elapsed();
+                    Ok((IndexWrapper::Hnsw(index), build_time))
+                },
+                |idx| {
+                    if let Some(save_path) = cli.save_index.as_deref() {
+                        if let IndexWrapper::Hnsw(inner) = idx {
+                            inner.save(save_path)
+                                .with_context(|| format!("failed to save index to {}", save_path.display()))?;
+                            println!("Saved HNSW index to {} ({} vectors)", save_path.display(), inner.len());
+                        }
                     }
-                    _ => unreachable!(),
-                }
-            }
-
-            print_results(&index, &first_result, build_time, total_search_time, &runtime, &cli, (avg_recall, min_recall, max_recall))?;
+                    Ok(())
+                },
+                false,
+                &dataset,
+                &queries,
+                &runtime,
+                &cli,
+            )?;
         }
         IndexType::Ivf => {
-            let (index, build_time) = if let Some(load_path) = cli.load_index.as_deref() {
-                println!("Loading IVF index from {}...", load_path.display());
-                let load_start = Instant::now();
-                let loaded_index = IvfIndex::load(load_path)
-                    .with_context(|| format!("failed to load index from {}", load_path.display()))?;
-                let load_time = load_start.elapsed();
-                println!("Loaded index in {:.2?} ({} vectors, metric: {:?})", 
-                         load_time, loaded_index.len(), loaded_index.metric());
-                (IndexWrapper::Ivf(loaded_index), load_time)
-            } else {
-                let mut index = IvfIndex::with_defaults(runtime.metric);
-                let build_start = Instant::now();
-                index.build(dataset.clone())?;
-                let build_time = build_start.elapsed();
-                (IndexWrapper::Ivf(index), build_time)
-            };
-
-            // Run search
-            let mut total_search_time = 0u128;
-            let mut all_results = Vec::with_capacity(queries.len());
-            let mut first_result: Option<Vec<ScoredPoint>> = None;
-            for query in &queries {
-                let search_start = Instant::now();
-                let result = index.search(query, runtime.limit)?;
-                total_search_time += search_start.elapsed().as_micros();
-                all_results.push(result.clone());
-                if first_result.is_none() {
-                    first_result = Some(result);
-                }
-            }
-
-            // Compute ground truth and recall
-            println!("Computing ground truth with exhaustive search...");
-            let ground_truth_start = Instant::now();
-            let ground_truth = compute_ground_truth(&dataset, &queries, runtime.metric, runtime.limit)?;
-            let ground_truth_time = ground_truth_start.elapsed();
-            println!("Ground truth computed in {:.2?}", ground_truth_time);
-            
-            let (avg_recall, min_recall, max_recall) = compute_recall_metrics(&all_results, &ground_truth, runtime.limit);
-
-            // Save if requested
-            if let Some(save_path) = cli.save_index.as_deref() {
-                match &index {
-                    IndexWrapper::Ivf(idx) => {
-                        idx.save(save_path)
-                            .with_context(|| format!("failed to save index to {}", save_path.display()))?;
-                        println!("Saved IVF index to {} ({} vectors)", save_path.display(), idx.len());
+            run_benchmark(
+                "IVF",
+                |load_path| {
+                    println!("Loading IVF index from {}...", load_path.display());
+                    let load_start = Instant::now();
+                    let loaded = IvfIndex::load(load_path)
+                        .with_context(|| format!("failed to load index from {}", load_path.display()))?;
+                    let load_time = load_start.elapsed();
+                    println!("Loaded index in {:.2?} ({} vectors, metric: {:?})", 
+                             load_time, loaded.len(), loaded.metric());
+                    Ok((IndexWrapper::Ivf(loaded), load_time))
+                },
+                || {
+                    let mut index = IvfIndex::with_defaults(runtime.metric);
+                    let build_start = Instant::now();
+                    index.build(dataset.clone())?;
+                    let build_time = build_start.elapsed();
+                    Ok((IndexWrapper::Ivf(index), build_time))
+                },
+                |idx| {
+                    if let Some(save_path) = cli.save_index.as_deref() {
+                        if let IndexWrapper::Ivf(inner) = idx {
+                            inner.save(save_path)
+                                .with_context(|| format!("failed to save index to {}", save_path.display()))?;
+                            println!("Saved IVF index to {} ({} vectors)", save_path.display(), inner.len());
+                        }
                     }
-                    _ => unreachable!(),
-                }
-            }
-
-            print_results(&index, &first_result, build_time, total_search_time, &runtime, &cli, (avg_recall, min_recall, max_recall))?;
+                    Ok(())
+                },
+                false,
+                &dataset,
+                &queries,
+                &runtime,
+                &cli,
+            )?;
         }
         IndexType::Pq => {
-            let (index, build_time) = if let Some(load_path) = cli.load_index.as_deref() {
-                println!("Loading PQ index from {}...", load_path.display());
-                let load_start = Instant::now();
-                let loaded_index = PqIndex::load(load_path)
-                    .with_context(|| format!("failed to load index from {}", load_path.display()))?;
-                let load_time = load_start.elapsed();
-                println!("Loaded index in {:.2?} ({} vectors, metric: {:?})", 
-                         load_time, loaded_index.len(), loaded_index.metric());
-                (IndexWrapper::Pq(loaded_index), load_time)
-            } else {
-                let mut index = PqIndex::with_defaults(runtime.metric);
-                let build_start = Instant::now();
-                index.build(dataset.clone())?;
-                let build_time = build_start.elapsed();
-                (IndexWrapper::Pq(index), build_time)
-            };
-
-            // Run search
-            let mut total_search_time = 0u128;
-            let mut all_results = Vec::with_capacity(queries.len());
-            let mut first_result: Option<Vec<ScoredPoint>> = None;
-            for query in &queries {
-                let search_start = Instant::now();
-                let result = index.search(query, runtime.limit)?;
-                total_search_time += search_start.elapsed().as_micros();
-                all_results.push(result.clone());
-                if first_result.is_none() {
-                    first_result = Some(result);
-                }
-            }
-
-            // Compute ground truth and recall
-            println!("Computing ground truth with exhaustive search...");
-            let ground_truth_start = Instant::now();
-            let ground_truth = compute_ground_truth(&dataset, &queries, runtime.metric, runtime.limit)?;
-            let ground_truth_time = ground_truth_start.elapsed();
-            println!("Ground truth computed in {:.2?}", ground_truth_time);
-            
-            let (avg_recall, min_recall, max_recall) = compute_recall_metrics(&all_results, &ground_truth, runtime.limit);
-
-            // Save if requested
-            if let Some(save_path) = cli.save_index.as_deref() {
-                match &index {
-                    IndexWrapper::Pq(idx) => {
-                        idx.save(save_path)
-                            .with_context(|| format!("failed to save index to {}", save_path.display()))?;
-                        println!("Saved PQ index to {} ({} vectors)", save_path.display(), idx.len());
+            run_benchmark(
+                "PQ",
+                |load_path| {
+                    println!("Loading PQ index from {}...", load_path.display());
+                    let load_start = Instant::now();
+                    let loaded = PqIndex::load(load_path)
+                        .with_context(|| format!("failed to load index from {}", load_path.display()))?;
+                    let load_time = load_start.elapsed();
+                    println!("Loaded index in {:.2?} ({} vectors, metric: {:?})", 
+                             load_time, loaded.len(), loaded.metric());
+                    Ok((IndexWrapper::Pq(loaded), load_time))
+                },
+                || {
+                    let mut index = PqIndex::with_defaults(runtime.metric);
+                    let build_start = Instant::now();
+                    index.build(dataset.clone())?;
+                    let build_time = build_start.elapsed();
+                    Ok((IndexWrapper::Pq(index), build_time))
+                },
+                |idx| {
+                    if let Some(save_path) = cli.save_index.as_deref() {
+                        if let IndexWrapper::Pq(inner) = idx {
+                            inner.save(save_path)
+                                .with_context(|| format!("failed to save index to {}", save_path.display()))?;
+                            println!("Saved PQ index to {} ({} vectors)", save_path.display(), inner.len());
+                        }
                     }
-                    _ => unreachable!(),
-                }
-            }
-
-            print_results(&index, &first_result, build_time, total_search_time, &runtime, &cli, (avg_recall, min_recall, max_recall))?;
+                    Ok(())
+                },
+                false,
+                &dataset,
+                &queries,
+                &runtime,
+                &cli,
+            )?;
         }
     }
 

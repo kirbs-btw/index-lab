@@ -2,9 +2,12 @@
 //! This crate defines common traits, utilities, and dataset helpers that other
 //! experimental crates can build upon.
 
-use anyhow::{ensure, Result};
+use anyhow::{ensure, Context, Result};
 use rand::{distributions::Uniform, prelude::*};
 use serde::{Deserialize, Serialize};
+use std::fs::File;
+use std::io::{BufReader, BufWriter};
+use std::path::Path;
 
 /// Canonical vector representation used throughout the playground.
 pub type Vector = Vec<f32>;
@@ -137,6 +140,42 @@ pub fn generate_query_set(
     (0..count)
         .map(|_| (0..dimension).map(|_| rng.sample(distribution)).collect())
         .collect()
+}
+
+/// Validates that a vector has the expected dimension.
+pub fn validate_dimension(
+    expected: Option<usize>,
+    actual: usize,
+) -> Result<()> {
+    if let Some(expected_dim) = expected {
+        ensure!(
+            actual == expected_dim,
+            "vector dimension mismatch: expected {}, got {}",
+            expected_dim,
+            actual
+        );
+    }
+    Ok(())
+}
+
+/// Saves a serializable index to a JSON file.
+pub fn save_index<T: Serialize>(index: &T, path: impl AsRef<Path>) -> Result<()> {
+    let file = File::create(path.as_ref())
+        .with_context(|| format!("failed to create index file at {}", path.as_ref().display()))?;
+    let writer = BufWriter::new(file);
+    serde_json::to_writer_pretty(writer, index)
+        .context("failed to serialize index to JSON")?;
+    Ok(())
+}
+
+/// Loads a deserializable index from a JSON file.
+pub fn load_index<T: for<'de> Deserialize<'de>>(path: impl AsRef<Path>) -> Result<T> {
+    let file = File::open(path.as_ref())
+        .with_context(|| format!("failed to open index file at {}", path.as_ref().display()))?;
+    let reader = BufReader::new(file);
+    let index = serde_json::from_reader(reader)
+        .with_context(|| format!("failed to deserialize index from {}", path.as_ref().display()))?;
+    Ok(index)
 }
 
 #[cfg(test)]

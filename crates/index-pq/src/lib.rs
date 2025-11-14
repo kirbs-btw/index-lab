@@ -4,13 +4,11 @@
 //! subvectors and quantizing each subvector using a codebook. During search,
 //! approximate distances are computed using lookup tables for efficiency.
 
-use anyhow::{ensure, Context, Result};
-use index_core::{distance, DistanceMetric, ScoredPoint, Vector, VectorIndex};
+use anyhow::{ensure, Result};
+use index_core::{distance, DistanceMetric, load_index, save_index, ScoredPoint, validate_dimension, Vector, VectorIndex};
 use rand::seq::SliceRandom;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use std::fs::File;
-use std::io::{BufReader, BufWriter};
 use std::path::Path;
 use thiserror::Error;
 
@@ -86,13 +84,11 @@ impl PqIndex {
 
     fn validate_dimension(&self, vector: &[f32]) -> Result<()> {
         if let Some(expected) = self.dimension {
-            ensure!(
-                vector.len() == expected,
-                PqError::DimensionMismatch {
+            validate_dimension(Some(expected), vector.len())
+                .map_err(|_| PqError::DimensionMismatch {
                     expected,
-                    actual: vector.len()
-                }
-            );
+                    actual: vector.len(),
+                })?;
         }
         Ok(())
     }
@@ -397,22 +393,12 @@ impl PqIndex {
 
     /// Saves the index to a JSON file
     pub fn save(&self, path: impl AsRef<Path>) -> Result<()> {
-        let file = File::create(path.as_ref())
-            .with_context(|| format!("failed to create index file at {}", path.as_ref().display()))?;
-        let writer = BufWriter::new(file);
-        serde_json::to_writer_pretty(writer, self)
-            .context("failed to serialize index to JSON")?;
-        Ok(())
+        save_index(self, path)
     }
 
     /// Loads an index from a JSON file
     pub fn load(path: impl AsRef<Path>) -> Result<Self> {
-        let file = File::open(path.as_ref())
-            .with_context(|| format!("failed to open index file at {}", path.as_ref().display()))?;
-        let reader = BufReader::new(file);
-        let index = serde_json::from_reader(reader)
-            .with_context(|| format!("failed to deserialize index from {}", path.as_ref().display()))?;
-        Ok(index)
+        load_index(path)
     }
 }
 
