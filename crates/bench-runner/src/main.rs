@@ -16,6 +16,7 @@ use index_linear::LinearIndex;
 use index_hnsw::HnswIndex;
 use index_ivf::IvfIndex;
 use index_pq::PqIndex;
+use index_lim::LimIndex;
 use serde::Serialize;
 use scenarios::{ScenarioDetails, ScenarioKind};
 use std::collections::HashSet;
@@ -26,6 +27,7 @@ enum IndexWrapper {
     Hnsw(HnswIndex),
     Ivf(IvfIndex),
     Pq(PqIndex),
+    Lim(LimIndex),
 }
 
 impl VectorIndex for IndexWrapper {
@@ -35,6 +37,7 @@ impl VectorIndex for IndexWrapper {
             IndexWrapper::Hnsw(idx) => idx.metric(),
             IndexWrapper::Ivf(idx) => idx.metric(),
             IndexWrapper::Pq(idx) => idx.metric(),
+            IndexWrapper::Lim(idx) => idx.metric(),
         }
     }
 
@@ -44,6 +47,7 @@ impl VectorIndex for IndexWrapper {
             IndexWrapper::Hnsw(idx) => idx.len(),
             IndexWrapper::Ivf(idx) => idx.len(),
             IndexWrapper::Pq(idx) => idx.len(),
+            IndexWrapper::Lim(idx) => idx.len(),
         }
     }
 
@@ -53,6 +57,7 @@ impl VectorIndex for IndexWrapper {
             IndexWrapper::Hnsw(idx) => idx.insert(id, vector),
             IndexWrapper::Ivf(idx) => idx.insert(id, vector),
             IndexWrapper::Pq(idx) => idx.insert(id, vector),
+            IndexWrapper::Lim(idx) => idx.insert(id, vector),
         }
     }
 
@@ -62,6 +67,7 @@ impl VectorIndex for IndexWrapper {
             IndexWrapper::Hnsw(idx) => idx.search(query, limit),
             IndexWrapper::Ivf(idx) => idx.search(query, limit),
             IndexWrapper::Pq(idx) => idx.search(query, limit),
+            IndexWrapper::Lim(idx) => idx.search(query, limit),
         }
     }
 }
@@ -72,6 +78,7 @@ enum IndexType {
     Hnsw,
     Ivf,
     Pq,
+    Lim,
 }
 
 #[derive(Debug, Parser)]
@@ -445,6 +452,43 @@ fn main() -> Result<()> {
                 &cli,
             )?;
         }
+        IndexType::Lim => {
+            run_benchmark(
+                "LIM",
+                |load_path| {
+                    println!("Loading LIM index from {}...", load_path.display());
+                    let load_start = Instant::now();
+                    let loaded = LimIndex::load(load_path)
+                        .with_context(|| format!("failed to load index from {}", load_path.display()))?;
+                    let load_time = load_start.elapsed();
+                    println!("Loaded index in {:.2?} ({} vectors, metric: {:?})", 
+                             load_time, loaded.len(), loaded.metric());
+                    Ok((IndexWrapper::Lim(loaded), load_time))
+                },
+                || {
+                    let mut index = LimIndex::with_defaults(runtime.metric);
+                    let build_start = Instant::now();
+                    index.build(dataset.clone())?;
+                    let build_time = build_start.elapsed();
+                    Ok((IndexWrapper::Lim(index), build_time))
+                },
+                |idx| {
+                    if let Some(save_path) = cli.save_index.as_deref() {
+                        if let IndexWrapper::Lim(inner) = idx {
+                            inner.save(save_path)
+                                .with_context(|| format!("failed to save index to {}", save_path.display()))?;
+                            println!("Saved LIM index to {} ({} vectors)", save_path.display(), inner.len());
+                        }
+                    }
+                    Ok(())
+                },
+                false, // Set to true if LIM is exhaustive (like linear)
+                &dataset,
+                &queries,
+                &runtime,
+                &cli,
+            )?;
+        }
     }
 
     // Note: report_json is handled in print_results if needed
@@ -486,6 +530,7 @@ fn print_results(
         IndexWrapper::Hnsw(_) => "hnsw",
         IndexWrapper::Ivf(_) => "ivf",
         IndexWrapper::Pq(_) => "pq",
+        IndexWrapper::Lim(_) => "lim",
     };
     
     let (avg_recall, min_recall, max_recall) = recall_metrics;

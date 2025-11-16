@@ -5,6 +5,7 @@ members = [
     "crates/index-hnsw",
     "crates/index-ivf",
     "crates/index-pq",
+    "crates/index-lim",
     "crates/bench-runner",
 ]
 resolver = "2"

@@ -67,6 +67,7 @@ dependencies = [
  "index-core",
  "index-hnsw",
  "index-ivf",
+ "index-lim",
  "index-linear",
  "index-pq",
  "rand",
@@ -168,6 +169,18 @@ dependencies = [
 
 [[package]]
 name = "index-ivf"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "index-core",
+ "rand",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "index-lim"
 version = "0.1.0"
 dependencies = [
  "anyhow",

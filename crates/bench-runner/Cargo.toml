@@ -11,6 +11,7 @@ index-linear = { path = "../index-linear" }
 index-hnsw = { path = "../index-hnsw" }
 index-ivf = { path = "../index-ivf" }
 index-pq = { path = "../index-pq" }
+index-lim = { path = "../index-lim" }
 rand = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
