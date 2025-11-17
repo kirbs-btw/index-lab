@@ -33,41 +33,41 @@ enum IndexWrapper {
 impl VectorIndex for IndexWrapper {
     fn metric(&self) -> DistanceMetric {
         match self {
-            IndexWrapper::Linear(idx) => idx.metric(),
-            IndexWrapper::Hnsw(idx) => idx.metric(),
-            IndexWrapper::Ivf(idx) => idx.metric(),
-            IndexWrapper::Pq(idx) => idx.metric(),
-            IndexWrapper::Lim(idx) => idx.metric(),
+            Self::Linear(idx) => idx.metric(),
+            Self::Hnsw(idx) => idx.metric(),
+            Self::Ivf(idx) => idx.metric(),
+            Self::Pq(idx) => idx.metric(),
+            Self::Lim(idx) => idx.metric(),
         }
     }
 
     fn len(&self) -> usize {
         match self {
-            IndexWrapper::Linear(idx) => idx.len(),
-            IndexWrapper::Hnsw(idx) => idx.len(),
-            IndexWrapper::Ivf(idx) => idx.len(),
-            IndexWrapper::Pq(idx) => idx.len(),
-            IndexWrapper::Lim(idx) => idx.len(),
+            Self::Linear(idx) => idx.len(),
+            Self::Hnsw(idx) => idx.len(),
+            Self::Ivf(idx) => idx.len(),
+            Self::Pq(idx) => idx.len(),
+            Self::Lim(idx) => idx.len(),
         }
     }
 
     fn insert(&mut self, id: usize, vector: Vector) -> Result<()> {
         match self {
-            IndexWrapper::Linear(idx) => idx.insert(id, vector),
-            IndexWrapper::Hnsw(idx) => idx.insert(id, vector),
-            IndexWrapper::Ivf(idx) => idx.insert(id, vector),
-            IndexWrapper::Pq(idx) => idx.insert(id, vector),
-            IndexWrapper::Lim(idx) => idx.insert(id, vector),
+            Self::Linear(idx) => idx.insert(id, vector),
+            Self::Hnsw(idx) => idx.insert(id, vector),
+            Self::Ivf(idx) => idx.insert(id, vector),
+            Self::Pq(idx) => idx.insert(id, vector),
+            Self::Lim(idx) => idx.insert(id, vector),
         }
     }
 
     fn search(&self, query: &Vector, limit: usize) -> Result<Vec<ScoredPoint>> {
         match self {
-            IndexWrapper::Linear(idx) => idx.search(query, limit),
-            IndexWrapper::Hnsw(idx) => idx.search(query, limit),
-            IndexWrapper::Ivf(idx) => idx.search(query, limit),
-            IndexWrapper::Pq(idx) => idx.search(query, limit),
-            IndexWrapper::Lim(idx) => idx.search(query, limit),
+            Self::Linear(idx) => idx.search(query, limit),
+            Self::Hnsw(idx) => idx.search(query, limit),
+            Self::Ivf(idx) => idx.search(query, limit),
+            Self::Pq(idx) => idx.search(query, limit),
+            Self::Lim(idx) => idx.search(query, limit),
         }
     }
 }
@@ -202,6 +202,17 @@ fn compute_recall_metrics(
     (avg_recall, min_recall, max_recall)
 }
 
+/// Helper to save an index if a save path is provided
+fn save_index_if_requested<F>(save_path: Option<&Path>, save_fn: F) -> Result<()>
+where
+    F: FnOnce(&Path) -> Result<()>,
+{
+    if let Some(path) = save_path {
+        save_fn(path)?;
+    }
+    Ok(())
+}
+
 /// Generic benchmark runner that handles common logic for all index types
 fn run_benchmark<F1, F2, F3>(
     _index_name: &str,
@@ -217,7 +228,7 @@ fn run_benchmark<F1, F2, F3>(
 where
     F1: FnOnce(&Path) -> Result<(IndexWrapper, Duration)>,
     F2: FnOnce() -> Result<(IndexWrapper, Duration)>,
-    F3: FnOnce(&IndexWrapper) -> Result<()>,
+    F3: FnOnce(&IndexWrapper, &Path) -> Result<()>,
 {
     // Load or build index
     let (index, build_time) = if let Some(load_path) = cli.load_index.as_deref() {
@@ -256,7 +267,7 @@ where
     };
 
     // Save if requested
-    save_fn(&index)?;
+    save_index_if_requested(cli.save_index.as_deref(), |path| save_fn(&index, path))?;
 
     print_results(&index, &first_result, build_time, total_search_time, runtime, cli, recall_metrics)?;
 
@@ -324,13 +335,11 @@ fn main() -> Result<()> {
                     let build_time = build_start.elapsed();
                     Ok((IndexWrapper::Linear(index), build_time))
                 },
-                |idx| {
-                    if let Some(save_path) = cli.save_index.as_deref() {
-                        if let IndexWrapper::Linear(inner) = idx {
-                            inner.save(save_path)
-                                .with_context(|| format!("failed to save index to {}", save_path.display()))?;
-                            println!("Saved linear index to {} ({} vectors)", save_path.display(), inner.len());
-                        }
+                |idx, path| {
+                    if let IndexWrapper::Linear(inner) = idx {
+                        inner.save(path)
+                            .with_context(|| format!("failed to save index to {}", path.display()))?;
+                        println!("Saved linear index to {} ({} vectors)", path.display(), inner.len());
                     }
                     Ok(())
                 },
@@ -361,13 +370,11 @@ fn main() -> Result<()> {
                     let build_time = build_start.elapsed();
                     Ok((IndexWrapper::Hnsw(index), build_time))
                 },
-                |idx| {
-                    if let Some(save_path) = cli.save_index.as_deref() {
-                        if let IndexWrapper::Hnsw(inner) = idx {
-                            inner.save(save_path)
-                                .with_context(|| format!("failed to save index to {}", save_path.display()))?;
-                            println!("Saved HNSW index to {} ({} vectors)", save_path.display(), inner.len());
-                        }
+                |idx, path| {
+                    if let IndexWrapper::Hnsw(inner) = idx {
+                        inner.save(path)
+                            .with_context(|| format!("failed to save index to {}", path.display()))?;
+                        println!("Saved HNSW index to {} ({} vectors)", path.display(), inner.len());
                     }
                     Ok(())
                 },
@@ -398,13 +405,11 @@ fn main() -> Result<()> {
                     let build_time = build_start.elapsed();
                     Ok((IndexWrapper::Ivf(index), build_time))
                 },
-                |idx| {
-                    if let Some(save_path) = cli.save_index.as_deref() {
-                        if let IndexWrapper::Ivf(inner) = idx {
-                            inner.save(save_path)
-                                .with_context(|| format!("failed to save index to {}", save_path.display()))?;
-                            println!("Saved IVF index to {} ({} vectors)", save_path.display(), inner.len());
-                        }
+                |idx, path| {
+                    if let IndexWrapper::Ivf(inner) = idx {
+                        inner.save(path)
+                            .with_context(|| format!("failed to save index to {}", path.display()))?;
+                        println!("Saved IVF index to {} ({} vectors)", path.display(), inner.len());
                     }
                     Ok(())
                 },
@@ -435,13 +440,11 @@ fn main() -> Result<()> {
                     let build_time = build_start.elapsed();
                     Ok((IndexWrapper::Pq(index), build_time))
                 },
-                |idx| {
-                    if let Some(save_path) = cli.save_index.as_deref() {
-                        if let IndexWrapper::Pq(inner) = idx {
-                            inner.save(save_path)
-                                .with_context(|| format!("failed to save index to {}", save_path.display()))?;
-                            println!("Saved PQ index to {} ({} vectors)", save_path.display(), inner.len());
-                        }
+                |idx, path| {
+                    if let IndexWrapper::Pq(inner) = idx {
+                        inner.save(path)
+                            .with_context(|| format!("failed to save index to {}", path.display()))?;
+                        println!("Saved PQ index to {} ({} vectors)", path.display(), inner.len());
                     }
                     Ok(())
                 },
@@ -472,13 +475,11 @@ fn main() -> Result<()> {
                     let build_time = build_start.elapsed();
                     Ok((IndexWrapper::Lim(index), build_time))
                 },
-                |idx| {
-                    if let Some(save_path) = cli.save_index.as_deref() {
-                        if let IndexWrapper::Lim(inner) = idx {
-                            inner.save(save_path)
-                                .with_context(|| format!("failed to save index to {}", save_path.display()))?;
-                            println!("Saved LIM index to {} ({} vectors)", save_path.display(), inner.len());
-                        }
+                |idx, path| {
+                    if let IndexWrapper::Lim(inner) = idx {
+                        inner.save(path)
+                            .with_context(|| format!("failed to save index to {}", path.display()))?;
+                        println!("Saved LIM index to {} ({} vectors)", path.display(), inner.len());
                     }
                     Ok(())
                 },

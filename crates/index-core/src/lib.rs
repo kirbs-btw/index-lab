@@ -158,6 +158,31 @@ pub fn validate_dimension(
     Ok(())
 }
 
+/// Macro to implement the common `validate_dimension` method for index types.
+/// This eliminates duplication across all index implementations.
+///
+/// Usage:
+/// ```ignore
+/// impl_validate_dimension!(MyIndex, MyError);
+/// ```
+#[macro_export]
+macro_rules! impl_validate_dimension {
+    ($index_type:ty, $error_type:ty) => {
+        impl $index_type {
+            fn validate_dimension(&self, vector: &[f32]) -> $crate::Result<()> {
+                if let Some(expected) = self.dimension {
+                    $crate::validate_dimension(Some(expected), vector.len())
+                        .map_err(|_| <$error_type>::DimensionMismatch {
+                            expected,
+                            actual: vector.len(),
+                        })?;
+                }
+                Ok(())
+            }
+        }
+    };
+}
+
 /// Saves a serializable index to a JSON file.
 pub fn save_index<T: Serialize>(index: &T, path: impl AsRef<Path>) -> Result<()> {
     let file = File::create(path.as_ref())
