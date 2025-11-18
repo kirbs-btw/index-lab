@@ -4,7 +4,7 @@
 
 use anyhow::{ensure, Result};
 use index_core::{
-    DistanceMetric, load_index, save_index, ScoredPoint,
+    distance, DistanceMetric, load_index, save_index, ScoredPoint,
     validate_dimension, Vector, VectorIndex,
 };
 use serde::{Deserialize, Serialize};
