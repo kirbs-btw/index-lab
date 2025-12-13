@@ -12,6 +12,7 @@ index-hnsw = { path = "../index-hnsw" }
 index-ivf = { path = "../index-ivf" }
 index-pq = { path = "../index-pq" }
 index-lim = { path = "../index-lim" }
+index-hybrid = { path = "../index-hybrid" }
 rand = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -17,6 +17,7 @@ use index_hnsw::HnswIndex;
 use index_ivf::IvfIndex;
 use index_pq::PqIndex;
 use index_lim::LimIndex;
+use index_hybrid::HybridIndex;
 use serde::Serialize;
 use scenarios::{ScenarioDetails, ScenarioKind};
 use std::collections::HashSet;
@@ -28,6 +29,7 @@ enum IndexWrapper {
     Ivf(IvfIndex),
     Pq(PqIndex),
     Lim(LimIndex),
+    Hybrid(HybridIndex),
 }
 
 impl VectorIndex for IndexWrapper {
@@ -38,6 +40,7 @@ impl VectorIndex for IndexWrapper {
             Self::Ivf(idx) => idx.metric(),
             Self::Pq(idx) => idx.metric(),
             Self::Lim(idx) => idx.metric(),
+            Self::Hybrid(idx) => idx.metric(),
         }
     }
 
@@ -48,6 +51,7 @@ impl VectorIndex for IndexWrapper {
             Self::Ivf(idx) => idx.len(),
             Self::Pq(idx) => idx.len(),
             Self::Lim(idx) => idx.len(),
+            Self::Hybrid(idx) => idx.len(),
         }
     }
 
@@ -58,6 +62,7 @@ impl VectorIndex for IndexWrapper {
             Self::Ivf(idx) => idx.insert(id, vector),
             Self::Pq(idx) => idx.insert(id, vector),
             Self::Lim(idx) => idx.insert(id, vector),
+            Self::Hybrid(idx) => idx.insert(id, vector),
         }
     }
 
@@ -68,6 +73,7 @@ impl VectorIndex for IndexWrapper {
             Self::Ivf(idx) => idx.search(query, limit),
             Self::Pq(idx) => idx.search(query, limit),
             Self::Lim(idx) => idx.search(query, limit),
+            Self::Hybrid(idx) => idx.search(query, limit),
         }
     }
 }
@@ -79,6 +85,7 @@ enum IndexType {
     Ivf,
     Pq,
     Lim,
+    Hybrid,
 }
 
 #[derive(Debug, Parser)]
@@ -490,6 +497,41 @@ fn main() -> Result<()> {
                 &cli,
             )?;
         }
+        IndexType::Hybrid => {
+            run_benchmark(
+                "Hybrid",
+                |load_path| {
+                    println!("Loading Hybrid index from {}...", load_path.display());
+                    let load_start = Instant::now();
+                    let loaded = HybridIndex::load(load_path)
+                        .with_context(|| format!("failed to load index from {}", load_path.display()))?;
+                    let load_time = load_start.elapsed();
+                    println!("Loaded index in {:.2?} ({} vectors, metric: {:?})", 
+                             load_time, loaded.len(), loaded.metric());
+                    Ok((IndexWrapper::Hybrid(loaded), load_time))
+                },
+                || {
+                    let mut index = HybridIndex::with_defaults(runtime.metric);
+                    let build_start = Instant::now();
+                    index.build(dataset.clone())?;
+                    let build_time = build_start.elapsed();
+                    Ok((IndexWrapper::Hybrid(index), build_time))
+                },
+                |idx, path| {
+                    if let IndexWrapper::Hybrid(inner) = idx {
+                        inner.save(path)
+                            .with_context(|| format!("failed to save index to {}", path.display()))?;
+                        println!("Saved Hybrid index to {} ({} vectors)", path.display(), inner.len());
+                    }
+                    Ok(())
+                },
+                false, // Not exhaustive (uses linear scan for now, but sparse matching is approximate)
+                &dataset,
+                &queries,
+                &runtime,
+                &cli,
+            )?;
+        }
     }
 
     // Note: report_json is handled in print_results if needed
@@ -532,6 +574,7 @@ fn print_results(
         IndexWrapper::Ivf(_) => "ivf",
         IndexWrapper::Pq(_) => "pq",
         IndexWrapper::Lim(_) => "lim",
+        IndexWrapper::Hybrid(_) => "hybrid",
     };
     
     let (avg_recall, min_recall, max_recall) = recall_metrics;

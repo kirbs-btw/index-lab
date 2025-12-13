@@ -66,6 +66,7 @@ dependencies = [
  "clap",
  "index-core",
  "index-hnsw",
+ "index-hybrid",
  "index-ivf",
  "index-lim",
  "index-linear",
@@ -162,6 +163,17 @@ dependencies = [
  "anyhow",
  "index-core",
  "rand",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "index-hybrid"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "index-core",
  "serde",
  "serde_json",
  "thiserror",
