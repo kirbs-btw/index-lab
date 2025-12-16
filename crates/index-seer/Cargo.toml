@@ -1,0 +1,13 @@
+[package]
+name = "index-seer"
+version = "0.1.0"
+edition = "2021"
+description = "SEER: Similarity Estimation via Efficient Routing - A learned locality prediction index"
+
+[dependencies]
+anyhow = { workspace = true }
+index-core = { path = "../index-core" }
+rand = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

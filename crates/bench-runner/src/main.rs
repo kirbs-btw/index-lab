@@ -18,6 +18,7 @@ use index_ivf::IvfIndex;
 use index_pq::PqIndex;
 use index_lim::LimIndex;
 use index_hybrid::HybridIndex;
+use index_seer::SeerIndex;
 use serde::Serialize;
 use scenarios::{ScenarioDetails, ScenarioKind};
 use std::collections::HashSet;
@@ -30,6 +31,7 @@ enum IndexWrapper {
     Pq(PqIndex),
     Lim(LimIndex),
     Hybrid(HybridIndex),
+    Seer(SeerIndex),
 }
 
 impl VectorIndex for IndexWrapper {
@@ -41,6 +43,7 @@ impl VectorIndex for IndexWrapper {
             Self::Pq(idx) => idx.metric(),
             Self::Lim(idx) => idx.metric(),
             Self::Hybrid(idx) => idx.metric(),
+            Self::Seer(idx) => idx.metric(),
         }
     }
 
@@ -52,6 +55,7 @@ impl VectorIndex for IndexWrapper {
             Self::Pq(idx) => idx.len(),
             Self::Lim(idx) => idx.len(),
             Self::Hybrid(idx) => idx.len(),
+            Self::Seer(idx) => idx.len(),
         }
     }
 
@@ -63,6 +67,7 @@ impl VectorIndex for IndexWrapper {
             Self::Pq(idx) => idx.insert(id, vector),
             Self::Lim(idx) => idx.insert(id, vector),
             Self::Hybrid(idx) => idx.insert(id, vector),
+            Self::Seer(idx) => idx.insert(id, vector),
         }
     }
 
@@ -74,6 +79,7 @@ impl VectorIndex for IndexWrapper {
             Self::Pq(idx) => idx.search(query, limit),
             Self::Lim(idx) => idx.search(query, limit),
             Self::Hybrid(idx) => idx.search(query, limit),
+            Self::Seer(idx) => idx.search(query, limit),
         }
     }
 }
@@ -86,6 +92,7 @@ enum IndexType {
     Pq,
     Lim,
     Hybrid,
+    Seer,
 }
 
 #[derive(Debug, Parser)]
@@ -532,6 +539,41 @@ fn main() -> Result<()> {
                 &cli,
             )?;
         }
+        IndexType::Seer => {
+            run_benchmark(
+                "SEER",
+                |load_path| {
+                    println!("Loading SEER index from {}...", load_path.display());
+                    let load_start = Instant::now();
+                    let loaded = SeerIndex::load(load_path)
+                        .with_context(|| format!("failed to load index from {}", load_path.display()))?;
+                    let load_time = load_start.elapsed();
+                    println!("Loaded index in {:.2?} ({} vectors, metric: {:?})", 
+                             load_time, loaded.len(), loaded.metric());
+                    Ok((IndexWrapper::Seer(loaded), load_time))
+                },
+                || {
+                    let mut index = SeerIndex::with_defaults(runtime.metric);
+                    let build_start = Instant::now();
+                    index.build(dataset.clone())?;
+                    let build_time = build_start.elapsed();
+                    Ok((IndexWrapper::Seer(index), build_time))
+                },
+                |idx, path| {
+                    if let IndexWrapper::Seer(inner) = idx {
+                        inner.save(path)
+                            .with_context(|| format!("failed to save index to {}", path.display()))?;
+                        println!("Saved SEER index to {} ({} vectors)", path.display(), inner.len());
+                    }
+                    Ok(())
+                },
+                false, // Not exhaustive (uses learned candidate filtering)
+                &dataset,
+                &queries,
+                &runtime,
+                &cli,
+            )?;
+        }
     }
 
     // Note: report_json is handled in print_results if needed
@@ -575,6 +617,7 @@ fn print_results(
         IndexWrapper::Pq(_) => "pq",
         IndexWrapper::Lim(_) => "lim",
         IndexWrapper::Hybrid(_) => "hybrid",
+        IndexWrapper::Seer(_) => "seer",
     };
     
     let (avg_recall, min_recall, max_recall) = recall_metrics;

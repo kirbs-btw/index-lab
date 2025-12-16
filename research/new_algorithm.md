@@ -131,3 +131,56 @@ For any LIM variant, measure:
 - **Memory efficiency**: Bytes per vector
 - **Energy consumption**: Joules per query (if exploring #4)
 - **Robustness**: Performance under distribution shifts (if exploring #6)
+
+---
+
+## index-seer (SEER: Similarity Estimation via Efficient Routing)
+
+### Novel Research Direction: Learned Locality Prediction
+
+**Research Gap Addressed**: Learned Index Structures (Gap 3A)
+
+**Novel Idea**: Use lightweight machine learning models to **predict locality relationships** between vectors, rather than computing all pairwise distances. SEER:
+- Uses random projections to create feature representations
+- Learns which projection differences correlate with true distance
+- Filters candidates before exact distance computation
+
+**Key Innovation**: **Predictive locality** - instead of computing expensive distance functions, learn to predict which vectors are likely neighbors based on vector features, enabling faster index construction and updates.
+
+### Algorithm
+
+```
+predicted_locality = predictor.score(query, candidate)
+if predicted_locality > threshold:
+    exact_distance = compute_distance(query, candidate)  // Only compute when likely match
+```
+
+### Implementation Details
+
+1. **LocalityPredictor**: Random projection-based scorer
+   - Projects vectors onto `n_projections` random unit vectors
+   - Learns weights via correlation with true distances
+   - Scores based on weighted projection similarity
+
+2. **Candidate Filtering**: 
+   - Score all vectors with predictor (O(n × projections) — fast)
+   - Select top candidates based on threshold
+   - Compute exact distances only for candidates
+
+### Benchmark Results (1K points, 32-dim)
+- **Recall@10**: 99.06% average (min 90%, max 100%)
+- **QPS**: 49.7 queries/second
+- **Build time**: 30.90ms
+
+### Research Questions
+- What model architectures (MLPs, transformers, graph neural networks) best predict locality?
+- How to balance prediction accuracy vs. model size for real-time inference?
+- Can we provide theoretical bounds on recall when using predicted vs. exact locality?
+
+### Configuration Parameters
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `n_projections` | 16 | Number of random projections |
+| `n_samples` | 1000 | Training samples for weight learning |
+| `candidate_threshold` | 0.3 | Select top 30% as candidates |
+| `min_candidates` | 50 | Minimum candidates to always consider |
