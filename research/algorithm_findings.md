@@ -10,6 +10,7 @@ A summary of findings from the novel algorithms implemented and tested in `index
 |-----------|-------|------|------------------------|
 | **LIM** (Locality Index Method) | `index-lim` | Novel | Temporal vector indexing (Gap 1C) |
 | **Hybrid Index** | `index-hybrid` | Novel | Sparse-Dense Fusion (Gap 2A, 2B) |
+| **SEER** (Similarity Estimation via Efficient Routing) | `index-seer` | Novel | Learned Index Structures (Gap 3A) |
 | **HNSW** | `index-hnsw` | Baseline | Graph-based state-of-the-art |
 | **IVF** | `index-ivf` | Baseline | Clustering-based indexing |
 | **PQ** | `index-pq` | Baseline | Compression via quantization |
@@ -106,6 +107,61 @@ Unified index for **dense embeddings + sparse term vectors** (e.g., BM25, TF-IDF
 
 ---
 
+## SEER Algorithm (Similarity Estimation via Efficient Routing)
+
+> [!WARNING]
+> SEER is currently **25× slower** than linear scan. See [seer_analysis.md](./seer_analysis.md) for full details.
+
+### What It Does
+Uses **learned random projections** to predict locality relationships between vectors, filtering candidates before computing exact distances.
+
+**Key Innovation:**
+- Projects vectors onto random unit vectors
+- Learns weights via correlation with true distances
+- Scores candidates based on weighted projection similarity
+
+### ✅ Upsides
+| Advantage | Description |
+|-----------|-------------|
+| **Novel approach** | First learned index in the codebase |
+| **Clean implementation** | Well-structured Rust with proper error handling |
+| **Good test coverage** | 8 unit tests, all passing |
+| **High recall** | 96-99% recall@k in benchmarks |
+| **Research foundation** | Addresses Gap 3A (Learned Index Structures) |
+
+### ❌ Downsides
+| Issue | Severity | Description |
+|-------|----------|-------------|
+| **No actual pruning** | 🔴 High | Scores ALL vectors before filtering → O(n) |
+| **Slower than linear** | 🔴 High | 2.7 QPS vs 67 QPS (25× slower) |
+| **Training ineffective** | 🟠 Medium | Learned weights ≈ uniform weights |
+| **Inverted threshold** | 🟡 Medium | `threshold=0.3` selects 70%, not 30% |
+| **Hidden retraining** | 🟡 Medium | Every 1000th insert retrains predictor |
+
+### Benchmark Results (Verified 2025-12-17)
+| Scenario | Points | SEER QPS | Linear QPS | Recall |
+|----------|--------|----------|------------|--------|
+| `smoke` | 1,000 | 48.5 | 1,105.5 | 98.75% |
+| `recall-baseline` | 10,000 | 2.7 | 67.2 | 96.48% |
+
+### Testing Performed
+- ✅ Unit tests (8 tests, all passing)
+- ✅ Cluster separation verification
+- ✅ Save/load roundtrip
+- ✅ Benchmark smoke test
+- ✅ Benchmark recall-baseline
+- ❌ Large-scale benchmarks (>100K vectors)
+- ❌ Comparison with HNSW at equivalent recall
+
+### Recommendations
+1. **Add LSH bucketing** for O(1) candidate lookup instead of O(n) scoring
+2. **Fix threshold semantics** - rename or invert calculation
+3. **Remove or improve training** - current learning provides no benefit
+4. **Integrate with HNSW** for graph-accelerated candidate generation
+5. **See full analysis**: [seer_analysis.md](./seer_analysis.md)
+
+---
+
 ## Baseline Algorithms
 
 ### HNSW (Hierarchical Navigable Small World)
@@ -148,7 +204,8 @@ Based on [research_gap.md](./research_gap.md):
 | **2A** | Unified index structures | **Hybrid** | ✅ Implemented |
 | **2B** | Distribution alignment | **Hybrid** | ✅ Implemented |
 | **2C** | Efficient hybrid graph | - | ⚠️ Partially (no graph) |
-| **3A-3C** | Learned indexing | - | ❌ Not addressed |
+| **3A** | Learned index structures | **SEER** | ⚠️ Implemented (needs optimization) |
+| **3B-3C** | Workload adaptation | - | ❌ Not addressed |
 | **4A-4C** | Privacy-preserving | - | ❌ Not addressed |
 | **5A-5C** | Energy efficiency | - | ❌ Not addressed |
 | **6A-6C** | Robustness/reproducibility | - | ❌ Not addressed |
@@ -158,14 +215,15 @@ Based on [research_gap.md](./research_gap.md):
 
 ## Performance Comparison Summary
 
-| Metric | Linear | LIM | Hybrid | IVF | PQ | HNSW |
-|--------|--------|-----|--------|-----|-------|------|
-| **Search Complexity** | O(n) | O(clusters × k) | O(n) | O(probes × k) | O(n) | O(log n) |
-| **Insert Complexity** | O(1) | O(clusters) | O(1) | O(clusters)* | O(m)* | O(log n) |
-| **Memory per Vector** | O(d) | O(d + 8) | O(d + sparse) | O(d) | O(m) | O(d + edges) |
-| **Accuracy** | 100% | Approximate | Approximate | Approximate | Approximate | Approximate |
-| **Temporal Aware** | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Hybrid Search** | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ |
+| Metric | Linear | LIM | Hybrid | SEER | IVF | PQ | HNSW |
+|--------|--------|-----|--------|------|-----|-------|------|
+| **Search Complexity** | O(n) | O(clusters × k) | O(n) | O(n)* | O(probes × k) | O(n) | O(log n) |
+| **Insert Complexity** | O(1) | O(clusters) | O(1) | O(1) | O(clusters)* | O(m)* | O(log n) |
+| **Memory per Vector** | O(d) | O(d + 8) | O(d + sparse) | O(d + proj) | O(d) | O(m) | O(d + edges) |
+| **Accuracy** | 100% | Approximate | Approximate | ~97% | Approximate | Approximate | Approximate |
+| **Temporal Aware** | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Hybrid Search** | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Learned** | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ |
 
 *After training phase
 
@@ -174,16 +232,18 @@ Based on [research_gap.md](./research_gap.md):
 ## Next Steps
 
 ### Immediate Priorities
-1. **Fix LIM scale mismatch** - Normalize spatial distances
-2. **Add sparse inverted index** to Hybrid
-3. **Large-scale benchmarks** - 100K-1M vectors
+1. **Fix SEER performance** - Add LSH bucketing for O(1) candidate lookup (currently 25× slower than linear)
+2. **Fix LIM scale mismatch** - Normalize spatial distances
+3. **Add sparse inverted index** to Hybrid
+4. **Large-scale benchmarks** - 100K-1M vectors
 
 ### Research Extensions
 1. **Graph-accelerated Hybrid** - Combine HNSW with sparse lookup
-2. **Learned LIM** - Predict locality without distance computation
+2. **Improved SEER learning** - Proper metric learning or neural locality prediction
 3. **Streaming support** - Handle continuous inserts without rebuilds
 
 ---
 
-*Document generated: 2025-12-15*
-*See also: [lim_algorithm_analysis.md](./lim_algorithm_analysis.md), [research_gap.md](./research_gap.md)*
+*Document updated: 2025-12-17*
+*See also: [seer_analysis.md](./seer_analysis.md), [lim_algorithm_analysis.md](./lim_algorithm_analysis.md), [research_gap.md](./research_gap.md)*
+

@@ -167,20 +167,32 @@ if predicted_locality > threshold:
    - Select top candidates based on threshold
    - Compute exact distances only for candidates
 
-### Benchmark Results (1K points, 32-dim)
-- **Recall@10**: 99.06% average (min 90%, max 100%)
-- **QPS**: 49.7 queries/second
-- **Build time**: 30.90ms
+> [!WARNING]
+> **Critical Analysis (2025-12-17)**: SEER is currently **25× slower** than linear scan due to O(n) scoring overhead. See [seer_analysis.md](./seer_analysis.md) for full details and recommended fixes.
+
+### Benchmark Results
+
+| Scenario | Points | Dim | SEER QPS | Linear QPS | Speedup | Recall |
+|----------|--------|-----|----------|------------|---------|--------|
+| `smoke` | 1,000 | 32 | 48.5 | 1,105.5 | **0.04×** | 98.75% |
+| `recall-baseline` | 10,000 | 64 | 2.7 | 67.2 | **0.04×** | 96.48% |
+
+**Key Findings**:
+- Recall is good (~97%), but performance degrades linearly with dataset size
+- The O(n) scoring phase negates any pruning benefit
+- Needs LSH bucketing or hierarchical structure to be competitive
 
 ### Research Questions
 - What model architectures (MLPs, transformers, graph neural networks) best predict locality?
 - How to balance prediction accuracy vs. model size for real-time inference?
 - Can we provide theoretical bounds on recall when using predicted vs. exact locality?
+- **NEW**: How to add spatial partitioning (LSH/VP-trees) to avoid O(n) scoring?
 
 ### Configuration Parameters
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `n_projections` | 16 | Number of random projections |
-| `n_samples` | 1000 | Training samples for weight learning |
-| `candidate_threshold` | 0.3 | Select top 30% as candidates |
-| `min_candidates` | 50 | Minimum candidates to always consider |
+| Parameter | Default | Description | Issue |
+|-----------|---------|-------------|-------|
+| `n_projections` | 16 | Number of random projections | ✓ OK |
+| `n_samples` | 1000 | Training samples for weight learning | ⚠️ Training ineffective |
+| `candidate_threshold` | 0.3 | Select top 30% as candidates | ⚠️ Actually selects 70% |
+| `min_candidates` | 50 | Minimum candidates to always consider | ✓ OK |
+
