@@ -181,35 +181,10 @@ Uses **learned random projections** to predict locality relationships between ve
 
 ---
 
-## Benchmark Scenarios Tested
+## Related Documents
 
-| Scenario | Dimension | Points | Queries | Metric |
-|----------|-----------|--------|---------|--------|
-| `smoke` | 32 | 1,000 | 32 | Euclidean |
-| `recall-baseline` | 64 | 10,000 | 256 | Euclidean |
-| `cosine-quality` | 128 | 15,000 | 256 | Cosine |
-| `io-heavy` | 256 | 50,000 | 512 | Euclidean |
-
----
-
-## Research Gap Coverage
-
-Based on [research_gap.md](./research_gap.md):
-
-| Gap | Description | Algorithm | Status |
-|-----|-------------|-----------|--------|
-| **1A** | Real-time index maintenance | - | ❌ Not addressed |
-| **1B** | Streaming multi-vector | - | ❌ Not addressed |
-| **1C** | Temporal vector indexing | **LIM** | ✅ Implemented |
-| **2A** | Unified index structures | **Hybrid** | ✅ Implemented |
-| **2B** | Distribution alignment | **Hybrid** | ✅ Implemented |
-| **2C** | Efficient hybrid graph | - | ⚠️ Partially (no graph) |
-| **3A** | Learned index structures | **SEER** | ⚠️ Implemented (needs optimization) |
-| **3B-3C** | Workload adaptation | - | ❌ Not addressed |
-| **4A-4C** | Privacy-preserving | - | ❌ Not addressed |
-| **5A-5C** | Energy efficiency | - | ❌ Not addressed |
-| **6A-6C** | Robustness/reproducibility | - | ❌ Not addressed |
-| **7A-7C** | Context-aware search | - | ❌ Not addressed |
+- **Benchmark scenarios**: See [README.md](./README.md#-running-benchmarks)
+- **Research gaps**: See [research_gap.md](./research_gap.md) for full coverage
 
 ---
 
