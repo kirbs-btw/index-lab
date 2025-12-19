@@ -111,5 +111,3 @@ cargo run --release -p bench-runner -- --scenario io-heavy        # Stress test
 Full citations in [research_gap.md](./research_gap.md#appendix-a-state-of-the-art-algorithms).
 
 ---
-
-*Last updated: 2025-12-18*
