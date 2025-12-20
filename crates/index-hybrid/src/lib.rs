@@ -5,7 +5,7 @@
 //! score fusion to combine semantic similarity (dense) with keyword precision (sparse).
 //!
 //! # Research Gap Addressed
-//! 
+//!
 //! Gap 2: Hybrid Retrieval - Sparse-Dense Fusion
 //! - 80% of production RAG systems require hybrid search
 //! - Current systems build separate indexes and merge post-hoc (2-3× latency)
@@ -13,8 +13,8 @@
 
 use anyhow::{ensure, Result};
 use index_core::{
-    distance, load_index, save_index, DistanceMetric, ScoredPoint, validate_dimension,
-    Vector, VectorIndex,
+    distance, load_index, save_index, validate_dimension, DistanceMetric, ScoredPoint, Vector,
+    VectorIndex,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -30,7 +30,7 @@ pub enum HybridError {
 }
 
 /// Sparse vector representation using term ID to weight mapping.
-/// 
+///
 /// This is memory-efficient for typical sparse vectors (5-50 non-zero terms).
 /// Term IDs are u32 (vocabulary indices), weights are f32 (TF-IDF, BM25, etc.).
 pub type SparseVector = HashMap<u32, f32>;
@@ -57,18 +57,18 @@ pub struct HybridConfig {
     /// Sparse weight is (1.0 - dense_weight).
     /// Default: 0.6 (favoring semantic similarity slightly)
     pub dense_weight: f32,
-    
+
     /// Whether to normalize scores before fusion.
     /// Recommended: true (handles scale mismatch between dense and sparse)
     pub use_normalization: bool,
-    
+
     /// Scoring method for sparse vectors
     pub sparse_scoring: SparseScoring,
-    
+
     /// Percentile bounds for normalization (to handle outliers)
     /// Scores below this percentile are clipped to 0.0
     pub norm_lower_percentile: f32,
-    
+
     /// Scores above this percentile are clipped to 1.0
     pub norm_upper_percentile: f32,
 }
@@ -76,11 +76,11 @@ pub struct HybridConfig {
 impl Default for HybridConfig {
     fn default() -> Self {
         Self {
-            dense_weight: 0.6,           // 60% dense, 40% sparse
-            use_normalization: true,      // Handle scale mismatch
+            dense_weight: 0.6,       // 60% dense, 40% sparse
+            use_normalization: true, // Handle scale mismatch
             sparse_scoring: SparseScoring::DotProduct,
-            norm_lower_percentile: 0.05,  // 5th percentile
-            norm_upper_percentile: 0.95,  // 95th percentile
+            norm_lower_percentile: 0.05, // 5th percentile
+            norm_upper_percentile: 0.95, // 95th percentile
         }
     }
 }
@@ -176,11 +176,12 @@ impl HybridIndex {
 
     fn validate_dimension(&self, vector: &[f32]) -> Result<()> {
         if let Some(expected) = self.dimension {
-            validate_dimension(Some(expected), vector.len())
-                .map_err(|_| HybridError::DimensionMismatch {
+            validate_dimension(Some(expected), vector.len()).map_err(|_| {
+                HybridError::DimensionMismatch {
                     expected,
                     actual: vector.len(),
-                })?;
+                }
+            })?;
         }
         Ok(())
     }
@@ -193,11 +194,7 @@ impl HybridIndex {
     /// Computes sparse similarity between two sparse vectors
     fn sparse_similarity(&self, a: &SparseVector, b: &SparseVector) -> f32 {
         // Use the smaller map for iteration efficiency
-        let (smaller, larger) = if a.len() <= b.len() {
-            (a, b)
-        } else {
-            (b, a)
-        };
+        let (smaller, larger) = if a.len() <= b.len() { (a, b) } else { (b, a) };
 
         let dot_product: f32 = smaller
             .iter()
@@ -232,25 +229,19 @@ impl HybridIndex {
             // Combine with weighted sum (result is similarity, higher = better)
             let combined_sim = self.config.dense_weight * norm_dense
                 + (1.0 - self.config.dense_weight) * norm_sparse;
-            
+
             // Convert back to distance (lower = better) for consistency with VectorIndex
             1.0 - combined_sim
         } else {
             // Direct combination without normalization
             // Convert sparse similarity to distance
             let sparse_dist = 1.0 - sparse_sim.clamp(0.0, 1.0);
-            self.config.dense_weight * dense_dist
-                + (1.0 - self.config.dense_weight) * sparse_dist
+            self.config.dense_weight * dense_dist + (1.0 - self.config.dense_weight) * sparse_dist
         }
     }
 
     /// Inserts a vector with both dense and sparse representations
-    pub fn insert_hybrid(
-        &mut self,
-        id: usize,
-        dense: Vector,
-        sparse: SparseVector,
-    ) -> Result<()> {
+    pub fn insert_hybrid(&mut self, id: usize, dense: Vector, sparse: SparseVector) -> Result<()> {
         self.validate_dimension(&dense)?;
         if self.dimension.is_none() {
             self.dimension = Some(dense.len());
@@ -340,7 +331,7 @@ impl VectorIndex for HybridIndex {
     }
 
     /// Inserts a dense vector only.
-    /// 
+    ///
     /// Note: For full hybrid functionality, use `insert_hybrid()` instead.
     /// This method creates an empty sparse vector for compatibility.
     fn insert(&mut self, id: usize, vector: Vector) -> Result<()> {
@@ -348,7 +339,7 @@ impl VectorIndex for HybridIndex {
     }
 
     /// Searches using dense vector only.
-    /// 
+    ///
     /// Note: For full hybrid functionality, use `search_hybrid()` instead.
     /// This method uses an empty sparse query for compatibility.
     fn search(&self, query: &Vector, limit: usize) -> Result<Vec<ScoredPoint>> {
@@ -392,15 +383,15 @@ mod tests {
     #[test]
     fn sparse_similarity_basic() {
         let index = HybridIndex::with_defaults(DistanceMetric::Euclidean);
-        
+
         let mut a: SparseVector = HashMap::new();
         a.insert(1, 1.0);
         a.insert(2, 2.0);
-        
+
         let mut b: SparseVector = HashMap::new();
         b.insert(1, 1.0);
         b.insert(3, 3.0);
-        
+
         // Only term 1 overlaps: 1.0 * 1.0 = 1.0
         let sim = index.sparse_similarity(&a, &b);
         assert!((sim - 1.0).abs() < 1e-5);
@@ -409,13 +400,13 @@ mod tests {
     #[test]
     fn sparse_similarity_no_overlap() {
         let index = HybridIndex::with_defaults(DistanceMetric::Euclidean);
-        
+
         let mut a: SparseVector = HashMap::new();
         a.insert(1, 1.0);
-        
+
         let mut b: SparseVector = HashMap::new();
         b.insert(2, 1.0);
-        
+
         let sim = index.sparse_similarity(&a, &b);
         assert!((sim - 0.0).abs() < 1e-5);
     }
@@ -435,17 +426,17 @@ mod tests {
     #[test]
     fn insert_and_search_hybrid() {
         let mut index = HybridIndex::with_defaults(DistanceMetric::Euclidean);
-        
+
         // Entry 0: close in dense, no sparse
         let mut sparse0: SparseVector = HashMap::new();
         index.insert_hybrid(0, vec![0.0, 0.0], sparse0).unwrap();
-        
+
         // Entry 1: far in dense, but has matching sparse terms
         let mut sparse1: SparseVector = HashMap::new();
         sparse1.insert(1, 1.0);
         sparse1.insert(2, 1.0);
         index.insert_hybrid(1, vec![10.0, 10.0], sparse1).unwrap();
-        
+
         // Entry 2: moderate in dense, some sparse overlap
         let mut sparse2: SparseVector = HashMap::new();
         sparse2.insert(1, 0.5);
@@ -456,10 +447,12 @@ mod tests {
         query_sparse.insert(1, 1.0);
         query_sparse.insert(2, 1.0);
 
-        let result = index.search_hybrid(&vec![0.0, 0.0], &query_sparse, 3).unwrap();
+        let result = index
+            .search_hybrid(&vec![0.0, 0.0], &query_sparse, 3)
+            .unwrap();
         assert_eq!(result.len(), 3);
-        
-        // With sparse matching, entry 1 (far in dense, but matching sparse) 
+
+        // With sparse matching, entry 1 (far in dense, but matching sparse)
         // should be boosted compared to pure dense search
     }
 
@@ -472,7 +465,7 @@ mod tests {
             ..Default::default()
         };
         let mut index_dense = HybridIndex::new(DistanceMetric::Euclidean, config_dense);
-        
+
         // Test with high sparse weight (should favor keyword matching)
         let config_sparse = HybridConfig {
             dense_weight: 0.1,
@@ -480,19 +473,27 @@ mod tests {
             ..Default::default()
         };
         let mut index_sparse = HybridIndex::new(DistanceMetric::Euclidean, config_sparse);
-        
+
         // Entry 0: close in dense, no sparse terms
         let sparse0: SparseVector = HashMap::new();
-        index_dense.insert_hybrid(0, vec![0.0, 0.0], sparse0.clone()).unwrap();
-        index_sparse.insert_hybrid(0, vec![0.0, 0.0], sparse0).unwrap();
-        
+        index_dense
+            .insert_hybrid(0, vec![0.0, 0.0], sparse0.clone())
+            .unwrap();
+        index_sparse
+            .insert_hybrid(0, vec![0.0, 0.0], sparse0)
+            .unwrap();
+
         // Entry 1: far in dense, but has many matching sparse terms
         let mut sparse1: SparseVector = HashMap::new();
         sparse1.insert(1, 2.0);
         sparse1.insert(2, 2.0);
         sparse1.insert(3, 2.0);
-        index_dense.insert_hybrid(1, vec![10.0, 10.0], sparse1.clone()).unwrap();
-        index_sparse.insert_hybrid(1, vec![10.0, 10.0], sparse1).unwrap();
+        index_dense
+            .insert_hybrid(1, vec![10.0, 10.0], sparse1.clone())
+            .unwrap();
+        index_sparse
+            .insert_hybrid(1, vec![10.0, 10.0], sparse1)
+            .unwrap();
 
         // Query with matching sparse terms
         let mut query_sparse: SparseVector = HashMap::new();
@@ -500,12 +501,16 @@ mod tests {
         query_sparse.insert(2, 1.0);
         query_sparse.insert(3, 1.0);
 
-        let result_dense = index_dense.search_hybrid(&vec![0.0, 0.0], &query_sparse, 2).unwrap();
-        let result_sparse = index_sparse.search_hybrid(&vec![0.0, 0.0], &query_sparse, 2).unwrap();
+        let result_dense = index_dense
+            .search_hybrid(&vec![0.0, 0.0], &query_sparse, 2)
+            .unwrap();
+        let result_sparse = index_sparse
+            .search_hybrid(&vec![0.0, 0.0], &query_sparse, 2)
+            .unwrap();
 
         // With high dense weight, entry 0 (spatially close) should rank first
         assert_eq!(result_dense[0].id, 0);
-        
+
         // With high sparse weight, entry 1 (keyword match) should rank first
         assert_eq!(result_sparse[0].id, 1);
     }
@@ -513,15 +518,17 @@ mod tests {
     #[test]
     fn save_load_preserves_index() {
         let mut index = HybridIndex::with_defaults(DistanceMetric::Euclidean);
-        
+
         let mut sparse: SparseVector = HashMap::new();
         sparse.insert(1, 1.0);
         index.insert_hybrid(0, vec![1.0, 2.0], sparse).unwrap();
-        index.insert_hybrid(1, vec![3.0, 4.0], HashMap::new()).unwrap();
+        index
+            .insert_hybrid(1, vec![3.0, 4.0], HashMap::new())
+            .unwrap();
 
         let temp_dir = std::env::temp_dir();
         let path = temp_dir.join("test_hybrid_index.json");
-        
+
         index.save(&path).unwrap();
         let loaded = HybridIndex::load(&path).unwrap();
 

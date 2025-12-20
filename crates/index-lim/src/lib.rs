@@ -6,8 +6,8 @@
 
 use anyhow::{ensure, Result};
 use index_core::{
-    distance, DistanceMetric, load_index, save_index, ScoredPoint,
-    validate_dimension, Vector, VectorIndex,
+    distance, load_index, save_index, validate_dimension, DistanceMetric, ScoredPoint, Vector,
+    VectorIndex,
 };
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -40,10 +40,10 @@ pub struct LimConfig {
 impl Default for LimConfig {
     fn default() -> Self {
         Self {
-            spatial_weight: 0.7,      // 70% spatial, 30% temporal
-            temporal_decay: 0.01,      // Moderate decay rate
-            n_clusters: 50,            // Moderate number of clusters
-            n_probe: 5,                // Probe top 5 clusters
+            spatial_weight: 0.7,  // 70% spatial, 30% temporal
+            temporal_decay: 0.01, // Moderate decay rate
+            n_clusters: 50,       // Moderate number of clusters
+            n_probe: 5,           // Probe top 5 clusters
         }
     }
 }
@@ -101,11 +101,12 @@ impl LimIndex {
 
     fn validate_dimension(&self, vector: &[f32]) -> Result<()> {
         if let Some(expected) = self.dimension {
-            validate_dimension(Some(expected), vector.len())
-                .map_err(|_| LimError::DimensionMismatch {
+            validate_dimension(Some(expected), vector.len()).map_err(|_| {
+                LimError::DimensionMismatch {
                     expected,
                     actual: vector.len(),
-                })?;
+                }
+            })?;
         }
         Ok(())
     }
@@ -125,37 +126,39 @@ impl LimIndex {
 
     /// Computes combined spatial-temporal distance
     /// Returns: spatial_weight * spatial_dist + (1 - spatial_weight) * temporal_dist
-    fn combined_distance(
-        &self,
-        spatial_dist: f32,
-        time_diff: u64,
-    ) -> f32 {
+    fn combined_distance(&self, spatial_dist: f32, time_diff: u64) -> f32 {
         // Normalize temporal distance using exponential decay
         // Older vectors get higher temporal distance
         let temporal_dist = 1.0 - (-(time_diff as f32) * self.config.temporal_decay).exp();
-        
+
         // Combine spatial and temporal distances
-        self.config.spatial_weight * spatial_dist + (1.0 - self.config.spatial_weight) * temporal_dist
+        self.config.spatial_weight * spatial_dist
+            + (1.0 - self.config.spatial_weight) * temporal_dist
     }
 
     /// Finds the nearest locality clusters to a query vector
-    fn find_nearest_clusters(&self, query: &Vector, query_time: u64, n_probe: usize) -> Result<Vec<usize>> {
+    fn find_nearest_clusters(
+        &self,
+        query: &Vector,
+        query_time: u64,
+        n_probe: usize,
+    ) -> Result<Vec<usize>> {
         let mut cluster_distances: Vec<(usize, f32)> = self
             .clusters
             .iter()
             .enumerate()
             .map(|(idx, cluster)| {
                 // Compute spatial distance to cluster centroid
-                let spatial_dist = distance(self.metric, query, &cluster.spatial_centroid)
-                    .unwrap_or(f32::MAX);
-                
+                let spatial_dist =
+                    distance(self.metric, query, &cluster.spatial_centroid).unwrap_or(f32::MAX);
+
                 // Compute temporal distance
                 let time_diff = if query_time > cluster.temporal_centroid {
                     query_time - cluster.temporal_centroid
                 } else {
                     cluster.temporal_centroid - query_time
                 };
-                
+
                 // Combined distance
                 let combined_dist = self.combined_distance(spatial_dist, time_diff);
                 (idx, combined_dist)
@@ -187,17 +190,17 @@ impl LimIndex {
         let mut nearest_cluster = 0;
 
         for (idx, cluster) in self.clusters.iter().enumerate() {
-            let spatial_dist = distance(self.metric, &entry.vector, &cluster.spatial_centroid)
-                .unwrap_or(f32::MAX);
-            
+            let spatial_dist =
+                distance(self.metric, &entry.vector, &cluster.spatial_centroid).unwrap_or(f32::MAX);
+
             let time_diff = if entry.timestamp > cluster.temporal_centroid {
                 entry.timestamp - cluster.temporal_centroid
             } else {
                 cluster.temporal_centroid - entry.timestamp
             };
-            
+
             let combined_dist = self.combined_distance(spatial_dist, time_diff);
-            
+
             if combined_dist < min_dist {
                 min_dist = combined_dist;
                 nearest_cluster = idx;
@@ -210,39 +213,44 @@ impl LimIndex {
         // Update cluster centroid (simple average)
         let cluster = &mut self.clusters[nearest_cluster];
         let n = cluster.vectors.len();
-        
+
         // Update spatial centroid
         let dimension = cluster.spatial_centroid.len();
         for i in 0..dimension {
-            cluster.spatial_centroid[i] = cluster.vectors.iter()
-                .map(|v| v.vector[i])
-                .sum::<f32>() / n as f32;
+            cluster.spatial_centroid[i] =
+                cluster.vectors.iter().map(|v| v.vector[i]).sum::<f32>() / n as f32;
         }
-        
+
         // Normalize for cosine distance if needed
         if self.metric.requires_unit_vectors() {
-            let norm: f32 = cluster.spatial_centroid.iter().map(|x| x * x).sum::<f32>().sqrt();
+            let norm: f32 = cluster
+                .spatial_centroid
+                .iter()
+                .map(|x| x * x)
+                .sum::<f32>()
+                .sqrt();
             if norm > 0.0 {
                 for value in &mut cluster.spatial_centroid {
                     *value /= norm;
                 }
             }
         }
-        
+
         // Update temporal centroid (average timestamp)
-        cluster.temporal_centroid = cluster.vectors.iter()
-            .map(|v| v.timestamp)
-            .sum::<u64>() / n as u64;
+        cluster.temporal_centroid =
+            cluster.vectors.iter().map(|v| v.timestamp).sum::<u64>() / n as u64;
 
         // If we have too many clusters, merge the smallest ones
         if self.clusters.len() > self.config.n_clusters {
             // Simple strategy: remove smallest cluster and redistribute its vectors
-            let smallest_idx = self.clusters.iter()
+            let smallest_idx = self
+                .clusters
+                .iter()
                 .enumerate()
                 .min_by_key(|(_, c)| c.vectors.len())
                 .map(|(idx, _)| idx)
                 .unwrap_or(0);
-            
+
             let removed_cluster = self.clusters.remove(smallest_idx);
             for entry in removed_cluster.vectors {
                 self.assign_to_cluster(entry)?;
@@ -296,7 +304,10 @@ impl VectorIndex for LimIndex {
     }
 
     fn search(&self, query: &Vector, limit: usize) -> Result<Vec<ScoredPoint>> {
-        ensure!(limit > 0, "limit must be greater than zero to execute a search");
+        ensure!(
+            limit > 0,
+            "limit must be greater than zero to execute a search"
+        );
         ensure!(self.vector_count > 0, LimError::EmptyIndex);
         self.validate_dimension(query)?;
 
@@ -315,17 +326,17 @@ impl VectorIndex for LimIndex {
             for entry in &self.clusters[cluster_idx].vectors {
                 // Compute spatial distance
                 let spatial_dist = distance(self.metric, query, &entry.vector)?;
-                
+
                 // Compute temporal distance
                 let time_diff = if query_time > entry.timestamp {
                     query_time - entry.timestamp
                 } else {
                     entry.timestamp - query_time
                 };
-                
+
                 // Combined distance
                 let combined_dist = self.combined_distance(spatial_dist, time_diff);
-                
+
                 candidates.push(ScoredPoint::new(entry.id, combined_dist));
             }
         }
@@ -376,7 +387,7 @@ mod tests {
             DistanceMetric::Euclidean,
             LimConfig {
                 spatial_weight: 0.3,  // Favor temporal (70% temporal weight)
-                temporal_decay: 0.01,  // Moderate decay
+                temporal_decay: 0.01, // Moderate decay
                 n_clusters: 10,
                 n_probe: 3,
             },
@@ -384,10 +395,10 @@ mod tests {
 
         // Insert old vector
         index.insert(0, vec![0.0, 0.0]).unwrap();
-        
+
         // Wait a bit to ensure different timestamps
         thread::sleep(Duration::from_millis(100));
-        
+
         // Insert newer vector at same location
         index.insert(1, vec![0.0, 0.0]).unwrap();
 
@@ -403,7 +414,7 @@ mod tests {
     #[test]
     fn spatial_locality_works() {
         let mut index = LimIndex::with_defaults(DistanceMetric::Euclidean);
-        
+
         // Insert vectors in two spatial clusters
         index.insert(0, vec![0.0, 0.0]).unwrap();
         index.insert(1, vec![0.1, 0.1]).unwrap();

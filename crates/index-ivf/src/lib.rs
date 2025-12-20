@@ -5,7 +5,10 @@
 //! clusters to find approximate nearest neighbors.
 
 use anyhow::{ensure, Result};
-use index_core::{distance, DistanceMetric, load_index, save_index, ScoredPoint, validate_dimension, Vector, VectorIndex};
+use index_core::{
+    distance, load_index, save_index, validate_dimension, DistanceMetric, ScoredPoint, Vector,
+    VectorIndex,
+};
 use rand::seq::SliceRandom;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -80,11 +83,12 @@ impl IvfIndex {
 
     fn validate_dimension(&self, vector: &[f32]) -> Result<()> {
         if let Some(expected) = self.dimension {
-            validate_dimension(Some(expected), vector.len())
-                .map_err(|_| IvfError::DimensionMismatch {
+            validate_dimension(Some(expected), vector.len()).map_err(|_| {
+                IvfError::DimensionMismatch {
                     expected,
                     actual: vector.len(),
-                })?;
+                }
+            })?;
         }
         Ok(())
     }
@@ -116,10 +120,7 @@ impl IvfIndex {
             for (_, vector) in data {
                 let min_dist = centroids
                     .iter()
-                    .map(|centroid| {
-                        distance(self.metric, vector, centroid)
-                            .unwrap_or(f32::MAX)
-                    })
+                    .map(|centroid| distance(self.metric, vector, centroid).unwrap_or(f32::MAX))
                     .fold(f32::MAX, f32::min);
                 distances.push(min_dist);
                 total_distance += min_dist;
@@ -175,11 +176,7 @@ impl IvfIndex {
     }
 
     /// Updates centroids based on current cluster assignments
-    fn update_centroids(
-        &self,
-        clusters: &[Vec<(usize, Vector)>],
-        dimension: usize,
-    ) -> Vec<Vector> {
+    fn update_centroids(&self, clusters: &[Vec<(usize, Vector)>], dimension: usize) -> Vec<Vector> {
         clusters
             .iter()
             .map(|cluster| {
@@ -300,7 +297,7 @@ impl VectorIndex for IvfIndex {
 
     fn build(&mut self, data: impl IntoIterator<Item = (usize, Vector)>) -> Result<()> {
         let data: Vec<(usize, Vector)> = data.into_iter().collect();
-        
+
         if data.is_empty() {
             return Ok(());
         }
@@ -316,7 +313,7 @@ impl VectorIndex for IvfIndex {
 
     fn insert(&mut self, id: usize, vector: Vector) -> Result<()> {
         self.validate_dimension(&vector)?;
-        
+
         if self.dimension.is_none() {
             self.dimension = Some(vector.len());
             // Initialize with empty clusters and centroids
@@ -355,7 +352,10 @@ impl VectorIndex for IvfIndex {
     }
 
     fn search(&self, query: &Vector, limit: usize) -> Result<Vec<ScoredPoint>> {
-        ensure!(limit > 0, "limit must be greater than zero to execute a search");
+        ensure!(
+            limit > 0,
+            "limit must be greater than zero to execute a search"
+        );
         ensure!(!self.centroids.is_empty(), IvfError::NotBuilt);
         ensure!(self.vector_count > 0, IvfError::EmptyIndex);
         self.validate_dimension(query)?;
@@ -391,7 +391,7 @@ mod tests {
     #[test]
     fn insert_after_build_works() {
         let mut index = IvfIndex::with_defaults(DistanceMetric::Euclidean);
-        
+
         // Build with initial data
         let data = vec![
             (0, vec![0.0, 0.0]),
@@ -485,4 +485,3 @@ mod tests {
         let _ = std::fs::remove_file(&temp_path);
     }
 }
-

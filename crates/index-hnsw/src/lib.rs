@@ -5,11 +5,14 @@
 //! by Yu. A. Malkov and D. A. Yashunin
 
 use anyhow::{ensure, Result};
-use index_core::{distance, DistanceMetric, load_index, save_index, ScoredPoint, validate_dimension, Vector, VectorIndex};
+use index_core::{
+    distance, load_index, save_index, validate_dimension, DistanceMetric, ScoredPoint, Vector,
+    VectorIndex,
+};
 use rand::distributions::Distribution;
 use serde::{Deserialize, Serialize};
-use std::collections::{BinaryHeap, HashSet};
 use std::cmp::Ordering;
+use std::collections::{BinaryHeap, HashSet};
 use std::path::Path;
 use thiserror::Error;
 
@@ -137,11 +140,12 @@ impl HnswIndex {
 
     fn validate_dimension(&self, vector: &[f32]) -> Result<()> {
         if let Some(expected) = self.dimension {
-            validate_dimension(Some(expected), vector.len())
-                .map_err(|_| HnswError::DimensionMismatch {
+            validate_dimension(Some(expected), vector.len()).map_err(|_| {
+                HnswError::DimensionMismatch {
                     expected,
                     actual: vector.len(),
-                })?;
+                }
+            })?;
         }
         Ok(())
     }
@@ -263,11 +267,7 @@ impl HnswIndex {
         // Simply take the closest m candidates
         // In a full implementation, you'd use a more sophisticated heuristic
         // that prunes redundant connections
-        sorted
-            .into_iter()
-            .take(m)
-            .map(|entry| entry.id)
-            .collect()
+        sorted.into_iter().take(m).map(|entry| entry.id).collect()
     }
 
     /// Prunes connections to maintain m_max limit
@@ -413,7 +413,10 @@ impl VectorIndex for HnswIndex {
     }
 
     fn search(&self, query: &Vector, limit: usize) -> Result<Vec<ScoredPoint>> {
-        ensure!(limit > 0, "limit must be greater than zero to execute a search");
+        ensure!(
+            limit > 0,
+            "limit must be greater than zero to execute a search"
+        );
         ensure!(!self.nodes.is_empty(), HnswError::EmptyIndex);
         self.validate_dimension(query)?;
 
@@ -513,4 +516,3 @@ mod tests {
         let _ = std::fs::remove_file(&temp_path);
     }
 }
-

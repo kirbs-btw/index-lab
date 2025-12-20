@@ -1,7 +1,10 @@
 //! Straight-forward baseline index that performs a linear scan over all vectors.
 
 use anyhow::{ensure, Result};
-use index_core::{distance, DistanceMetric, load_index, save_index, ScoredPoint, validate_dimension, Vector, VectorIndex};
+use index_core::{
+    distance, load_index, save_index, validate_dimension, DistanceMetric, ScoredPoint, Vector,
+    VectorIndex,
+};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use thiserror::Error;
@@ -30,11 +33,12 @@ impl LinearIndex {
 
     fn validate_dimension(&self, vector: &[f32]) -> Result<()> {
         if let Some(expected) = self.dimension {
-            validate_dimension(Some(expected), vector.len())
-                .map_err(|_| LinearIndexError::DimensionMismatch {
+            validate_dimension(Some(expected), vector.len()).map_err(|_| {
+                LinearIndexError::DimensionMismatch {
                     expected,
                     actual: vector.len(),
-                })?;
+                }
+            })?;
         }
         Ok(())
     }

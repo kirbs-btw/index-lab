@@ -12,8 +12,8 @@
 
 use anyhow::{ensure, Result};
 use index_core::{
-    distance, load_index, save_index, DistanceMetric, ScoredPoint,
-    validate_dimension, Vector, VectorIndex,
+    distance, load_index, save_index, validate_dimension, DistanceMetric, ScoredPoint, Vector,
+    VectorIndex,
 };
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -47,10 +47,10 @@ pub struct SeerConfig {
 impl Default for SeerConfig {
     fn default() -> Self {
         Self {
-            n_projections: 16,       // Number of random projection features
-            n_samples: 1000,         // Samples for learning
+            n_projections: 16,        // Number of random projection features
+            n_samples: 1000,          // Samples for learning
             candidate_threshold: 0.3, // Select top 30% as candidates
-            min_candidates: 50,      // Always consider at least 50
+            min_candidates: 50,       // Always consider at least 50
             seed: 42,
         }
     }
@@ -73,13 +73,11 @@ struct LocalityPredictor {
 impl LocalityPredictor {
     fn new(dimension: usize, n_projections: usize, seed: u64) -> Self {
         let mut rng = StdRng::seed_from_u64(seed);
-        
+
         // Generate random projection vectors (unit normalized)
         let projections: Vec<Vector> = (0..n_projections)
             .map(|_| {
-                let mut proj: Vector = (0..dimension)
-                    .map(|_| rng.gen_range(-1.0..1.0))
-                    .collect();
+                let mut proj: Vector = (0..dimension).map(|_| rng.gen_range(-1.0..1.0)).collect();
                 // Normalize
                 let norm: f32 = proj.iter().map(|x| x * x).sum::<f32>().sqrt();
                 if norm > 0.0 {
@@ -90,10 +88,10 @@ impl LocalityPredictor {
                 proj
             })
             .collect();
-        
+
         // Initialize weights uniformly
         let weights = vec![1.0 / n_projections as f32; n_projections];
-        
+
         Self {
             projections,
             weights,
@@ -105,12 +103,7 @@ impl LocalityPredictor {
     fn project(&self, vector: &[f32]) -> Vec<f32> {
         self.projections
             .iter()
-            .map(|proj| {
-                proj.iter()
-                    .zip(vector.iter())
-                    .map(|(p, v)| p * v)
-                    .sum()
-            })
+            .map(|proj| proj.iter().zip(vector.iter()).map(|(p, v)| p * v).sum())
             .collect()
     }
 
@@ -118,7 +111,7 @@ impl LocalityPredictor {
     fn score(&self, query: &[f32], candidate: &[f32]) -> f32 {
         let query_proj = self.project(query);
         let candidate_proj = self.project(candidate);
-        
+
         // Compute weighted similarity of projections
         let mut score = 0.0f32;
         for i in 0..self.projections.len() {
@@ -128,7 +121,7 @@ impl LocalityPredictor {
             let similarity = (-diff).exp();
             score += self.weights[i] * similarity;
         }
-        
+
         score
     }
 
@@ -147,7 +140,7 @@ impl LocalityPredictor {
 
         let mut rng = StdRng::seed_from_u64(seed);
         let n = vectors.len();
-        
+
         // Sample pairs and classify as neighbors vs non-neighbors
         let mut projection_correlations = vec![0.0f32; self.projections.len()];
         let mut sample_count = 0;
@@ -164,7 +157,7 @@ impl LocalityPredictor {
 
             // Compute true distance
             let true_dist = distance(metric, vi, vj).unwrap_or(f32::MAX);
-            
+
             // Compute projection features
             let pi = self.project(vi);
             let pj = self.project(vj);
@@ -177,7 +170,7 @@ impl LocalityPredictor {
                 // Use simple heuristic: reward if both are small or both are large
                 let normalized_dist = true_dist / (true_dist + 1.0); // 0 to 1
                 let normalized_proj_diff = proj_diff / (proj_diff + 1.0);
-                
+
                 // Agreement score: high if both indicate "near" or both indicate "far"
                 let agreement = 1.0 - (normalized_dist - normalized_proj_diff).abs();
                 projection_correlations[k] += agreement;
@@ -189,10 +182,7 @@ impl LocalityPredictor {
         if sample_count > 0 {
             let total: f32 = projection_correlations.iter().sum();
             if total > 0.0 {
-                self.weights = projection_correlations
-                    .iter()
-                    .map(|c| c / total)
-                    .collect();
+                self.weights = projection_correlations.iter().map(|c| c / total).collect();
             }
         }
 
@@ -241,11 +231,12 @@ impl SeerIndex {
 
     fn validate_dimension(&self, vector: &[f32]) -> Result<()> {
         if let Some(expected) = self.dimension {
-            validate_dimension(Some(expected), vector.len())
-                .map_err(|_| SeerError::DimensionMismatch {
+            validate_dimension(Some(expected), vector.len()).map_err(|_| {
+                SeerError::DimensionMismatch {
                     expected,
                     actual: vector.len(),
-                })?;
+                }
+            })?;
         }
         Ok(())
     }
@@ -258,24 +249,22 @@ impl SeerIndex {
     /// Trains the locality predictor on the current dataset
     fn train_predictor(&mut self) {
         if let Some(dim) = self.dimension {
-            let mut predictor = LocalityPredictor::new(
-                dim,
-                self.config.n_projections,
-                self.config.seed,
-            );
-            
-            let vectors_ref: Vec<(usize, Vector)> = self.vectors
+            let mut predictor =
+                LocalityPredictor::new(dim, self.config.n_projections, self.config.seed);
+
+            let vectors_ref: Vec<(usize, Vector)> = self
+                .vectors
                 .iter()
                 .map(|e| (e.id, e.vector.clone()))
                 .collect();
-            
+
             predictor.train(
                 &vectors_ref,
                 self.metric,
                 self.config.n_samples,
                 self.config.seed,
             );
-            
+
             self.predictor = Some(predictor);
         }
     }
@@ -305,23 +294,23 @@ impl VectorIndex for SeerIndex {
         for (id, vector) in data {
             self.insert(id, vector)?;
         }
-        
+
         // Train the predictor
         self.train_predictor();
         self.is_built = true;
-        
+
         Ok(())
     }
 
     fn insert(&mut self, id: usize, vector: Vector) -> Result<()> {
         self.validate_dimension(&vector)?;
-        
+
         if self.dimension.is_none() {
             self.dimension = Some(vector.len());
         }
 
         self.vectors.push(VectorEntry { id, vector });
-        
+
         // If we've already built, mark as needing rebuild for optimal performance
         // (In practice, we'd want incremental updates, but for now just note it)
         if self.is_built && self.vectors.len() % 1000 == 0 {
@@ -340,25 +329,28 @@ impl VectorIndex for SeerIndex {
         // If we have a predictor, use it to filter candidates
         let candidates: Vec<&VectorEntry> = if let Some(ref predictor) = self.predictor {
             // Score all vectors with the predictor
-            let mut scored: Vec<(&VectorEntry, f32)> = self.vectors
+            let mut scored: Vec<(&VectorEntry, f32)> = self
+                .vectors
                 .iter()
                 .map(|entry| {
                     let score = predictor.score(query, &entry.vector);
                     (entry, score)
                 })
                 .collect();
-            
+
             // Sort by score (descending - higher score = more likely neighbor)
             scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-            
+
             // Select top candidates based on threshold
-            let threshold_idx = ((1.0 - self.config.candidate_threshold) * scored.len() as f32) as usize;
+            let threshold_idx =
+                ((1.0 - self.config.candidate_threshold) * scored.len() as f32) as usize;
             let n_candidates = threshold_idx
                 .max(self.config.min_candidates)
                 .max(limit)
                 .min(scored.len());
-            
-            scored.into_iter()
+
+            scored
+                .into_iter()
                 .take(n_candidates)
                 .map(|(entry, _)| entry)
                 .collect()
@@ -456,25 +448,29 @@ mod tests {
         let mut data: Vec<(usize, Vector)> = Vec::new();
         for i in 0..500 {
             // Cluster 1: around origin
-            data.push((i * 2, vec![
-                i as f32 / 1000.0 + 0.1,
-                i as f32 / 1000.0 + 0.1,
-            ]));
+            data.push((
+                i * 2,
+                vec![i as f32 / 1000.0 + 0.1, i as f32 / 1000.0 + 0.1],
+            ));
             // Cluster 2: far away
-            data.push((i * 2 + 1, vec![
-                10.0 + i as f32 / 1000.0,
-                10.0 + i as f32 / 1000.0,
-            ]));
+            data.push((
+                i * 2 + 1,
+                vec![10.0 + i as f32 / 1000.0, 10.0 + i as f32 / 1000.0],
+            ));
         }
         index.build(data).unwrap();
 
         // Search near cluster 1
         let result = index.search(&vec![0.1, 0.1], 5).unwrap();
         assert_eq!(result.len(), 5);
-        
+
         // All top results should be from cluster 1 (even IDs)
         for point in &result {
-            assert!(point.id % 2 == 0, "Expected cluster 1 vectors (even IDs), got {}", point.id);
+            assert!(
+                point.id % 2 == 0,
+                "Expected cluster 1 vectors (even IDs), got {}",
+                point.id
+            );
         }
     }
 
@@ -496,11 +492,13 @@ mod tests {
     #[test]
     fn save_and_load_roundtrip() {
         let mut index = SeerIndex::with_defaults(DistanceMetric::Euclidean);
-        index.build(vec![(0, vec![1.0, 2.0]), (1, vec![3.0, 4.0])]).unwrap();
+        index
+            .build(vec![(0, vec![1.0, 2.0]), (1, vec![3.0, 4.0])])
+            .unwrap();
 
         let temp_path = std::env::temp_dir().join("seer_test_index.json");
         index.save(&temp_path).unwrap();
-        
+
         let loaded = SeerIndex::load(&temp_path).unwrap();
         assert_eq!(loaded.len(), 2);
         assert_eq!(loaded.dimension(), Some(2));

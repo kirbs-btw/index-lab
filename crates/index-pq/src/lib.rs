@@ -5,7 +5,10 @@
 //! approximate distances are computed using lookup tables for efficiency.
 
 use anyhow::{ensure, Result};
-use index_core::{distance, DistanceMetric, load_index, save_index, ScoredPoint, validate_dimension, Vector, VectorIndex};
+use index_core::{
+    distance, load_index, save_index, validate_dimension, DistanceMetric, ScoredPoint, Vector,
+    VectorIndex,
+};
 use rand::seq::SliceRandom;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -38,7 +41,7 @@ pub struct PqConfig {
 impl Default for PqConfig {
     fn default() -> Self {
         Self {
-            m: 8,  // 8 subvectors
+            m: 8,   // 8 subvectors
             k: 256, // 256 centroids per subvector (1 byte codes)
             max_iter: 20,
         }
@@ -84,11 +87,12 @@ impl PqIndex {
 
     fn validate_dimension(&self, vector: &[f32]) -> Result<()> {
         if let Some(expected) = self.dimension {
-            validate_dimension(Some(expected), vector.len())
-                .map_err(|_| PqError::DimensionMismatch {
+            validate_dimension(Some(expected), vector.len()).map_err(|_| {
+                PqError::DimensionMismatch {
                     expected,
                     actual: vector.len(),
-                })?;
+                }
+            })?;
         }
         Ok(())
     }
@@ -102,13 +106,13 @@ impl PqIndex {
     fn split_vector<'a>(&self, vector: &'a [f32]) -> Result<Vec<&'a [f32]>> {
         let subvector_dim = self.subvector_dim.ok_or(PqError::NotTrained)?;
         let mut subvectors = Vec::with_capacity(self.config.m);
-        
+
         for i in 0..self.config.m {
             let start = i * subvector_dim;
             let end = start + subvector_dim;
             subvectors.push(&vector[start..end]);
         }
-        
+
         Ok(subvectors)
     }
 
@@ -135,7 +139,7 @@ impl PqIndex {
 
         // Extract subvectors for each position
         let mut subvector_data: Vec<Vec<Vector>> = vec![Vec::new(); self.config.m];
-        
+
         for (_, vector) in data {
             for (i, subvec) in self.split_vector(vector)?.iter().enumerate() {
                 subvector_data[i].push(subvec.to_vec());
@@ -165,7 +169,7 @@ impl PqIndex {
         for _iteration in 0..self.config.max_iter {
             // Assign vectors to nearest centroids
             let mut clusters: Vec<Vec<Vector>> = vec![Vec::new(); self.config.k];
-            
+
             for vector in data {
                 let mut min_dist = f32::MAX;
                 let mut nearest_centroid = 0;
@@ -271,10 +275,7 @@ impl PqIndex {
             for vector in data {
                 let min_dist = centroids
                     .iter()
-                    .map(|centroid| {
-                        distance(self.metric, vector, centroid)
-                            .unwrap_or(f32::MAX)
-                    })
+                    .map(|centroid| distance(self.metric, vector, centroid).unwrap_or(f32::MAX))
                     .fold(f32::MAX, f32::min);
                 distances.push(min_dist);
                 total_distance += min_dist;
@@ -336,13 +337,13 @@ impl PqIndex {
     /// Encodes a vector into PQ codes
     fn encode_vector(&self, vector: &Vector) -> Result<Vec<u8>> {
         ensure!(!self.codebooks.is_empty(), PqError::NotTrained);
-        
+
         let subvectors = self.split_vector(vector)?;
         let mut codes = Vec::with_capacity(self.config.m);
 
         for (subvec_idx, subvec) in subvectors.iter().enumerate() {
             let codebook = &self.codebooks[subvec_idx];
-            
+
             // Find nearest centroid
             let mut min_dist = f32::MAX;
             let mut nearest_code = 0u8;
@@ -367,14 +368,14 @@ impl PqIndex {
     /// Computes approximate distance between query and encoded vector using lookup tables
     fn approximate_distance(&self, query: &Vector, codes: &[u8]) -> Result<f32> {
         ensure!(!self.codebooks.is_empty(), PqError::NotTrained);
-        
+
         let subvectors = self.split_vector(query)?;
         let mut total_distance = 0.0;
 
         for (subvec_idx, subvec) in subvectors.iter().enumerate() {
             let code = codes[subvec_idx] as usize;
             let codebook = &self.codebooks[subvec_idx];
-            
+
             if code < codebook.len() {
                 let centroid = &codebook[code];
                 let dist = distance(self.metric, subvec, centroid)?;
@@ -413,7 +414,7 @@ impl VectorIndex for PqIndex {
 
     fn build(&mut self, data: impl IntoIterator<Item = (usize, Vector)>) -> Result<()> {
         let data: Vec<(usize, Vector)> = data.into_iter().collect();
-        
+
         if data.is_empty() {
             return Ok(());
         }
@@ -424,7 +425,7 @@ impl VectorIndex for PqIndex {
         // Encode all vectors
         self.codes.clear();
         self.ids.clear();
-        
+
         for (id, vector) in data {
             let codes = self.encode_vector(&vector)?;
             self.codes.push(codes);
@@ -436,7 +437,7 @@ impl VectorIndex for PqIndex {
 
     fn insert(&mut self, id: usize, vector: Vector) -> Result<()> {
         self.validate_dimension(&vector)?;
-        
+
         if self.dimension.is_none() {
             self.dimension = Some(vector.len());
             // Need to train first
@@ -454,14 +455,17 @@ impl VectorIndex for PqIndex {
     }
 
     fn search(&self, query: &Vector, limit: usize) -> Result<Vec<ScoredPoint>> {
-        ensure!(limit > 0, "limit must be greater than zero to execute a search");
+        ensure!(
+            limit > 0,
+            "limit must be greater than zero to execute a search"
+        );
         ensure!(!self.codebooks.is_empty(), PqError::NotTrained);
         ensure!(!self.codes.is_empty(), PqError::EmptyIndex);
         self.validate_dimension(query)?;
 
         // Compute approximate distances to all encoded vectors
         let mut candidates = Vec::with_capacity(self.codes.len());
-        
+
         for (idx, codes) in self.codes.iter().enumerate() {
             let dist = self.approximate_distance(query, codes)?;
             candidates.push(ScoredPoint::new(self.ids[idx], dist));
@@ -489,7 +493,7 @@ mod tests {
                 max_iter: 10,
             },
         );
-        
+
         // Build with initial data (dimension must be divisible by m)
         let data = vec![
             (0, vec![0.0, 0.0, 1.0, 1.0]),
@@ -599,4 +603,3 @@ mod tests {
         let _ = std::fs::remove_file(&temp_path);
     }
 }
-

@@ -12,15 +12,15 @@ use clap::{Parser, ValueEnum};
 use index_core::{
     generate_query_set, generate_uniform_dataset, DistanceMetric, ScoredPoint, Vector, VectorIndex,
 };
-use index_linear::LinearIndex;
 use index_hnsw::HnswIndex;
-use index_ivf::IvfIndex;
-use index_pq::PqIndex;
-use index_lim::LimIndex;
 use index_hybrid::HybridIndex;
+use index_ivf::IvfIndex;
+use index_lim::LimIndex;
+use index_linear::LinearIndex;
+use index_pq::PqIndex;
 use index_seer::SeerIndex;
-use serde::Serialize;
 use scenarios::{ScenarioDetails, ScenarioKind};
+use serde::Serialize;
 use std::collections::HashSet;
 
 /// Wrapper enum for different index types
@@ -156,13 +156,13 @@ fn compute_ground_truth(
 ) -> Result<Vec<Vec<ScoredPoint>>> {
     let mut ground_truth_index = LinearIndex::new(metric);
     ground_truth_index.build(dataset.iter().cloned())?;
-    
+
     let mut ground_truth_results = Vec::with_capacity(queries.len());
     for query in queries {
         let result = ground_truth_index.search(query, limit)?;
         ground_truth_results.push(result);
     }
-    
+
     Ok(ground_truth_results)
 }
 
@@ -175,21 +175,18 @@ fn calculate_recall(
     if ground_truth.is_empty() || k == 0 {
         return 0.0;
     }
-    
+
     // Create a set of IDs from ground truth (top k)
-    let ground_truth_ids: HashSet<usize> = ground_truth
-        .iter()
-        .take(k)
-        .map(|point| point.id)
-        .collect();
-    
+    let ground_truth_ids: HashSet<usize> =
+        ground_truth.iter().take(k).map(|point| point.id).collect();
+
     // Count how many of the top k ground truth IDs are in approximate results
     let found_count = approximate_results
         .iter()
         .take(k)
         .filter(|point| ground_truth_ids.contains(&point.id))
         .count();
-    
+
     found_count as f64 / k.min(ground_truth.len()) as f64
 }
 
@@ -202,17 +199,17 @@ fn compute_recall_metrics(
     if approximate_results.len() != ground_truth.len() {
         return (0.0, 0.0, 0.0);
     }
-    
+
     let mut recalls = Vec::with_capacity(approximate_results.len());
     for (approx, truth) in approximate_results.iter().zip(ground_truth.iter()) {
         let recall = calculate_recall(approx, truth, limit);
         recalls.push(recall);
     }
-    
+
     let avg_recall = recalls.iter().sum::<f64>() / recalls.len() as f64;
     let min_recall = recalls.iter().copied().fold(f64::INFINITY, f64::min);
     let max_recall = recalls.iter().copied().fold(0.0, f64::max);
-    
+
     (avg_recall, min_recall, max_recall)
 }
 
@@ -275,15 +272,24 @@ where
         let ground_truth = compute_ground_truth(dataset, queries, runtime.metric, runtime.limit)?;
         let ground_truth_time = ground_truth_start.elapsed();
         println!("Ground truth computed in {:.2?}", ground_truth_time);
-        
-        let (avg_recall, min_recall, max_recall) = compute_recall_metrics(&all_results, &ground_truth, runtime.limit);
+
+        let (avg_recall, min_recall, max_recall) =
+            compute_recall_metrics(&all_results, &ground_truth, runtime.limit);
         (avg_recall, min_recall, max_recall)
     };
 
     // Save if requested
     save_index_if_requested(cli.save_index.as_deref(), |path| save_fn(&index, path))?;
 
-    print_results(&index, &first_result, build_time, total_search_time, runtime, cli, recall_metrics)?;
+    print_results(
+        &index,
+        &first_result,
+        build_time,
+        total_search_time,
+        runtime,
+        cli,
+        recall_metrics,
+    )?;
 
     Ok(())
 }
@@ -300,7 +306,10 @@ fn main() -> Result<()> {
 
     if let Some(kind) = cli.scenario {
         let details = kind.details();
-        println!("Using scenario '{}' – {}", details.slug, details.description);
+        println!(
+            "Using scenario '{}' – {}",
+            details.slug, details.description
+        );
         runtime.apply_scenario(&details);
     }
 
@@ -335,11 +344,16 @@ fn main() -> Result<()> {
                 |load_path| {
                     println!("Loading linear index from {}...", load_path.display());
                     let load_start = Instant::now();
-                    let loaded = LinearIndex::load(load_path)
-                        .with_context(|| format!("failed to load index from {}", load_path.display()))?;
+                    let loaded = LinearIndex::load(load_path).with_context(|| {
+                        format!("failed to load index from {}", load_path.display())
+                    })?;
                     let load_time = load_start.elapsed();
-                    println!("Loaded index in {:.2?} ({} vectors, metric: {:?})", 
-                             load_time, loaded.len(), loaded.metric());
+                    println!(
+                        "Loaded index in {:.2?} ({} vectors, metric: {:?})",
+                        load_time,
+                        loaded.len(),
+                        loaded.metric()
+                    );
                     Ok((IndexWrapper::Linear(loaded), load_time))
                 },
                 || {
@@ -351,9 +365,14 @@ fn main() -> Result<()> {
                 },
                 |idx, path| {
                     if let IndexWrapper::Linear(inner) = idx {
-                        inner.save(path)
-                            .with_context(|| format!("failed to save index to {}", path.display()))?;
-                        println!("Saved linear index to {} ({} vectors)", path.display(), inner.len());
+                        inner.save(path).with_context(|| {
+                            format!("failed to save index to {}", path.display())
+                        })?;
+                        println!(
+                            "Saved linear index to {} ({} vectors)",
+                            path.display(),
+                            inner.len()
+                        );
                     }
                     Ok(())
                 },
@@ -370,11 +389,16 @@ fn main() -> Result<()> {
                 |load_path| {
                     println!("Loading HNSW index from {}...", load_path.display());
                     let load_start = Instant::now();
-                    let loaded = HnswIndex::load(load_path)
-                        .with_context(|| format!("failed to load index from {}", load_path.display()))?;
+                    let loaded = HnswIndex::load(load_path).with_context(|| {
+                        format!("failed to load index from {}", load_path.display())
+                    })?;
                     let load_time = load_start.elapsed();
-                    println!("Loaded index in {:.2?} ({} vectors, metric: {:?})", 
-                             load_time, loaded.len(), loaded.metric());
+                    println!(
+                        "Loaded index in {:.2?} ({} vectors, metric: {:?})",
+                        load_time,
+                        loaded.len(),
+                        loaded.metric()
+                    );
                     Ok((IndexWrapper::Hnsw(loaded), load_time))
                 },
                 || {
@@ -386,9 +410,14 @@ fn main() -> Result<()> {
                 },
                 |idx, path| {
                     if let IndexWrapper::Hnsw(inner) = idx {
-                        inner.save(path)
-                            .with_context(|| format!("failed to save index to {}", path.display()))?;
-                        println!("Saved HNSW index to {} ({} vectors)", path.display(), inner.len());
+                        inner.save(path).with_context(|| {
+                            format!("failed to save index to {}", path.display())
+                        })?;
+                        println!(
+                            "Saved HNSW index to {} ({} vectors)",
+                            path.display(),
+                            inner.len()
+                        );
                     }
                     Ok(())
                 },
@@ -405,11 +434,16 @@ fn main() -> Result<()> {
                 |load_path| {
                     println!("Loading IVF index from {}...", load_path.display());
                     let load_start = Instant::now();
-                    let loaded = IvfIndex::load(load_path)
-                        .with_context(|| format!("failed to load index from {}", load_path.display()))?;
+                    let loaded = IvfIndex::load(load_path).with_context(|| {
+                        format!("failed to load index from {}", load_path.display())
+                    })?;
                     let load_time = load_start.elapsed();
-                    println!("Loaded index in {:.2?} ({} vectors, metric: {:?})", 
-                             load_time, loaded.len(), loaded.metric());
+                    println!(
+                        "Loaded index in {:.2?} ({} vectors, metric: {:?})",
+                        load_time,
+                        loaded.len(),
+                        loaded.metric()
+                    );
                     Ok((IndexWrapper::Ivf(loaded), load_time))
                 },
                 || {
@@ -421,9 +455,14 @@ fn main() -> Result<()> {
                 },
                 |idx, path| {
                     if let IndexWrapper::Ivf(inner) = idx {
-                        inner.save(path)
-                            .with_context(|| format!("failed to save index to {}", path.display()))?;
-                        println!("Saved IVF index to {} ({} vectors)", path.display(), inner.len());
+                        inner.save(path).with_context(|| {
+                            format!("failed to save index to {}", path.display())
+                        })?;
+                        println!(
+                            "Saved IVF index to {} ({} vectors)",
+                            path.display(),
+                            inner.len()
+                        );
                     }
                     Ok(())
                 },
@@ -440,11 +479,16 @@ fn main() -> Result<()> {
                 |load_path| {
                     println!("Loading PQ index from {}...", load_path.display());
                     let load_start = Instant::now();
-                    let loaded = PqIndex::load(load_path)
-                        .with_context(|| format!("failed to load index from {}", load_path.display()))?;
+                    let loaded = PqIndex::load(load_path).with_context(|| {
+                        format!("failed to load index from {}", load_path.display())
+                    })?;
                     let load_time = load_start.elapsed();
-                    println!("Loaded index in {:.2?} ({} vectors, metric: {:?})", 
-                             load_time, loaded.len(), loaded.metric());
+                    println!(
+                        "Loaded index in {:.2?} ({} vectors, metric: {:?})",
+                        load_time,
+                        loaded.len(),
+                        loaded.metric()
+                    );
                     Ok((IndexWrapper::Pq(loaded), load_time))
                 },
                 || {
@@ -456,9 +500,14 @@ fn main() -> Result<()> {
                 },
                 |idx, path| {
                     if let IndexWrapper::Pq(inner) = idx {
-                        inner.save(path)
-                            .with_context(|| format!("failed to save index to {}", path.display()))?;
-                        println!("Saved PQ index to {} ({} vectors)", path.display(), inner.len());
+                        inner.save(path).with_context(|| {
+                            format!("failed to save index to {}", path.display())
+                        })?;
+                        println!(
+                            "Saved PQ index to {} ({} vectors)",
+                            path.display(),
+                            inner.len()
+                        );
                     }
                     Ok(())
                 },
@@ -475,11 +524,16 @@ fn main() -> Result<()> {
                 |load_path| {
                     println!("Loading LIM index from {}...", load_path.display());
                     let load_start = Instant::now();
-                    let loaded = LimIndex::load(load_path)
-                        .with_context(|| format!("failed to load index from {}", load_path.display()))?;
+                    let loaded = LimIndex::load(load_path).with_context(|| {
+                        format!("failed to load index from {}", load_path.display())
+                    })?;
                     let load_time = load_start.elapsed();
-                    println!("Loaded index in {:.2?} ({} vectors, metric: {:?})", 
-                             load_time, loaded.len(), loaded.metric());
+                    println!(
+                        "Loaded index in {:.2?} ({} vectors, metric: {:?})",
+                        load_time,
+                        loaded.len(),
+                        loaded.metric()
+                    );
                     Ok((IndexWrapper::Lim(loaded), load_time))
                 },
                 || {
@@ -491,9 +545,14 @@ fn main() -> Result<()> {
                 },
                 |idx, path| {
                     if let IndexWrapper::Lim(inner) = idx {
-                        inner.save(path)
-                            .with_context(|| format!("failed to save index to {}", path.display()))?;
-                        println!("Saved LIM index to {} ({} vectors)", path.display(), inner.len());
+                        inner.save(path).with_context(|| {
+                            format!("failed to save index to {}", path.display())
+                        })?;
+                        println!(
+                            "Saved LIM index to {} ({} vectors)",
+                            path.display(),
+                            inner.len()
+                        );
                     }
                     Ok(())
                 },
@@ -510,11 +569,16 @@ fn main() -> Result<()> {
                 |load_path| {
                     println!("Loading Hybrid index from {}...", load_path.display());
                     let load_start = Instant::now();
-                    let loaded = HybridIndex::load(load_path)
-                        .with_context(|| format!("failed to load index from {}", load_path.display()))?;
+                    let loaded = HybridIndex::load(load_path).with_context(|| {
+                        format!("failed to load index from {}", load_path.display())
+                    })?;
                     let load_time = load_start.elapsed();
-                    println!("Loaded index in {:.2?} ({} vectors, metric: {:?})", 
-                             load_time, loaded.len(), loaded.metric());
+                    println!(
+                        "Loaded index in {:.2?} ({} vectors, metric: {:?})",
+                        load_time,
+                        loaded.len(),
+                        loaded.metric()
+                    );
                     Ok((IndexWrapper::Hybrid(loaded), load_time))
                 },
                 || {
@@ -526,9 +590,14 @@ fn main() -> Result<()> {
                 },
                 |idx, path| {
                     if let IndexWrapper::Hybrid(inner) = idx {
-                        inner.save(path)
-                            .with_context(|| format!("failed to save index to {}", path.display()))?;
-                        println!("Saved Hybrid index to {} ({} vectors)", path.display(), inner.len());
+                        inner.save(path).with_context(|| {
+                            format!("failed to save index to {}", path.display())
+                        })?;
+                        println!(
+                            "Saved Hybrid index to {} ({} vectors)",
+                            path.display(),
+                            inner.len()
+                        );
                     }
                     Ok(())
                 },
@@ -545,11 +614,16 @@ fn main() -> Result<()> {
                 |load_path| {
                     println!("Loading SEER index from {}...", load_path.display());
                     let load_start = Instant::now();
-                    let loaded = SeerIndex::load(load_path)
-                        .with_context(|| format!("failed to load index from {}", load_path.display()))?;
+                    let loaded = SeerIndex::load(load_path).with_context(|| {
+                        format!("failed to load index from {}", load_path.display())
+                    })?;
                     let load_time = load_start.elapsed();
-                    println!("Loaded index in {:.2?} ({} vectors, metric: {:?})", 
-                             load_time, loaded.len(), loaded.metric());
+                    println!(
+                        "Loaded index in {:.2?} ({} vectors, metric: {:?})",
+                        load_time,
+                        loaded.len(),
+                        loaded.metric()
+                    );
                     Ok((IndexWrapper::Seer(loaded), load_time))
                 },
                 || {
@@ -561,9 +635,14 @@ fn main() -> Result<()> {
                 },
                 |idx, path| {
                     if let IndexWrapper::Seer(inner) = idx {
-                        inner.save(path)
-                            .with_context(|| format!("failed to save index to {}", path.display()))?;
-                        println!("Saved SEER index to {} ({} vectors)", path.display(), inner.len());
+                        inner.save(path).with_context(|| {
+                            format!("failed to save index to {}", path.display())
+                        })?;
+                        println!(
+                            "Saved SEER index to {} ({} vectors)",
+                            path.display(),
+                            inner.len()
+                        );
                     }
                     Ok(())
                 },
@@ -609,7 +688,7 @@ fn print_results(
         .scenario_slug
         .map(|slug| format!(" | Scenario: {slug}"))
         .unwrap_or_default();
-    
+
     let index_type_str = match index {
         IndexWrapper::Linear(_) => "linear",
         IndexWrapper::Hnsw(_) => "hnsw",
@@ -619,9 +698,9 @@ fn print_results(
         IndexWrapper::Hybrid(_) => "hybrid",
         IndexWrapper::Seer(_) => "seer",
     };
-    
+
     let (avg_recall, min_recall, max_recall) = recall_metrics;
-    
+
     println!(
         "Build: {:.2?} | Avg search: {:.2} us | QPS: {:.1} | Dataset: {:.2} MiB | Metric: {:?} | Index: {} | Points: {} | Queries: {} | Dim: {} | Limit: {}{}",
         stats.build_time,
@@ -636,7 +715,7 @@ fn print_results(
         runtime.limit,
         scenario_note
     );
-    
+
     if !matches!(index, IndexWrapper::Linear(_)) {
         println!(
             "Recall@{}: avg={:.4} | min={:.4} | max={:.4}",
@@ -731,7 +810,12 @@ fn estimate_dataset_bytes(dimension: usize, points: usize) -> usize {
         .saturating_mul(std::mem::size_of::<f32>())
 }
 
-fn write_report(path: &Path, runtime: &RuntimeConfig, stats: &BenchmarkStats, recall_metrics: (f64, f64, f64)) -> Result<()> {
+fn write_report(
+    path: &Path,
+    runtime: &RuntimeConfig,
+    stats: &BenchmarkStats,
+    recall_metrics: (f64, f64, f64),
+) -> Result<()> {
     #[derive(Serialize)]
     struct ReportPayload<'a> {
         config: ReportConfig<'a>,
@@ -769,7 +853,7 @@ fn write_report(path: &Path, runtime: &RuntimeConfig, stats: &BenchmarkStats, re
     }
 
     let (avg_recall, min_recall, max_recall) = recall_metrics;
-    
+
     let payload = ReportPayload {
         config: ReportConfig {
             scenario: runtime.scenario_slug,
@@ -861,7 +945,6 @@ fn export_testdata(
     let file = File::create(path)
         .with_context(|| format!("failed to create test data file at {}", path.display()))?;
     let writer = BufWriter::new(file);
-    serde_json::to_writer_pretty(writer, &payload)
-        .context("failed to write test data JSON")?;
+    serde_json::to_writer_pretty(writer, &payload).context("failed to write test data JSON")?;
     Ok(())
 }

@@ -100,7 +100,10 @@ pub fn distance(metric: DistanceMetric, a: &[f32], b: &[f32]) -> Result<f32> {
                 },
             );
 
-            ensure!(norm_a > 0.0 && norm_b > 0.0, "cosine metric is undefined for zero vectors");
+            ensure!(
+                norm_a > 0.0 && norm_b > 0.0,
+                "cosine metric is undefined for zero vectors"
+            );
             let similarity = dot / (norm_a.sqrt() * norm_b.sqrt());
             Ok(1.0 - similarity)
         }
@@ -143,10 +146,7 @@ pub fn generate_query_set(
 }
 
 /// Validates that a vector has the expected dimension.
-pub fn validate_dimension(
-    expected: Option<usize>,
-    actual: usize,
-) -> Result<()> {
+pub fn validate_dimension(expected: Option<usize>, actual: usize) -> Result<()> {
     if let Some(expected_dim) = expected {
         ensure!(
             actual == expected_dim,
@@ -171,11 +171,12 @@ macro_rules! impl_validate_dimension {
         impl $index_type {
             fn validate_dimension(&self, vector: &[f32]) -> $crate::Result<()> {
                 if let Some(expected) = self.dimension {
-                    $crate::validate_dimension(Some(expected), vector.len())
-                        .map_err(|_| <$error_type>::DimensionMismatch {
+                    $crate::validate_dimension(Some(expected), vector.len()).map_err(|_| {
+                        <$error_type>::DimensionMismatch {
                             expected,
                             actual: vector.len(),
-                        })?;
+                        }
+                    })?;
                 }
                 Ok(())
             }
@@ -188,8 +189,7 @@ pub fn save_index<T: Serialize>(index: &T, path: impl AsRef<Path>) -> Result<()>
     let file = File::create(path.as_ref())
         .with_context(|| format!("failed to create index file at {}", path.as_ref().display()))?;
     let writer = BufWriter::new(file);
-    serde_json::to_writer_pretty(writer, index)
-        .context("failed to serialize index to JSON")?;
+    serde_json::to_writer_pretty(writer, index).context("failed to serialize index to JSON")?;
     Ok(())
 }
 
@@ -198,8 +198,12 @@ pub fn load_index<T: for<'de> Deserialize<'de>>(path: impl AsRef<Path>) -> Resul
     let file = File::open(path.as_ref())
         .with_context(|| format!("failed to open index file at {}", path.as_ref().display()))?;
     let reader = BufReader::new(file);
-    let index = serde_json::from_reader(reader)
-        .with_context(|| format!("failed to deserialize index from {}", path.as_ref().display()))?;
+    let index = serde_json::from_reader(reader).with_context(|| {
+        format!(
+            "failed to deserialize index from {}",
+            path.as_ref().display()
+        )
+    })?;
     Ok(index)
 }
 
