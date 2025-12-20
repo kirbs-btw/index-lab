@@ -43,4 +43,4 @@ cargo run -p bench-runner -- --scenario cosine-quality --export-testdata data/co
 - Add a new crate under `crates/` and depend on `index-core` for the shared abstractions.
 - Implement the `VectorIndex` trait so the bench runner (or custom harnesses) can reuse your algorithm.
 - Extend `bench-runner` or add Criterion benches when you need more rigorous measurements.
-- See [Adding a New Algorithm](docs/ADDING_NEW_ALGORITHM.md) for a step-by-step guide.
+- See [CONTRIBUTING.md](CONTRIBUTING.md) for a step-by-step guide.
