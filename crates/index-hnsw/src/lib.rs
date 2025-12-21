@@ -74,14 +74,17 @@ impl Eq for HeapEntry {}
 
 impl PartialOrd for HeapEntry {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        // Reverse order for min-heap (smallest distance first)
-        other.distance.partial_cmp(&self.distance)
+        Some(self.cmp(other))
     }
 }
 
 impl Ord for HeapEntry {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).unwrap_or(Ordering::Equal)
+        // Reverse order for min-heap (smallest distance first)
+        other
+            .distance
+            .partial_cmp(&self.distance)
+            .unwrap_or(Ordering::Equal)
     }
 }
 

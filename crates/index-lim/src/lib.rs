@@ -153,11 +153,7 @@ impl LimIndex {
                     distance(self.metric, query, &cluster.spatial_centroid).unwrap_or(f32::MAX);
 
                 // Compute temporal distance
-                let time_diff = if query_time > cluster.temporal_centroid {
-                    query_time - cluster.temporal_centroid
-                } else {
-                    cluster.temporal_centroid - query_time
-                };
+                let time_diff = query_time.abs_diff(cluster.temporal_centroid);
 
                 // Combined distance
                 let combined_dist = self.combined_distance(spatial_dist, time_diff);
@@ -193,11 +189,7 @@ impl LimIndex {
             let spatial_dist =
                 distance(self.metric, &entry.vector, &cluster.spatial_centroid).unwrap_or(f32::MAX);
 
-            let time_diff = if entry.timestamp > cluster.temporal_centroid {
-                entry.timestamp - cluster.temporal_centroid
-            } else {
-                cluster.temporal_centroid - entry.timestamp
-            };
+            let time_diff = entry.timestamp.abs_diff(cluster.temporal_centroid);
 
             let combined_dist = self.combined_distance(spatial_dist, time_diff);
 
@@ -328,11 +320,7 @@ impl VectorIndex for LimIndex {
                 let spatial_dist = distance(self.metric, query, &entry.vector)?;
 
                 // Compute temporal distance
-                let time_diff = if query_time > entry.timestamp {
-                    query_time - entry.timestamp
-                } else {
-                    entry.timestamp - query_time
-                };
+                let time_diff = query_time.abs_diff(entry.timestamp);
 
                 // Combined distance
                 let combined_dist = self.combined_distance(spatial_dist, time_diff);

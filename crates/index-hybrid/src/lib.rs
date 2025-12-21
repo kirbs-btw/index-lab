@@ -36,18 +36,13 @@ pub enum HybridError {
 pub type SparseVector = HashMap<u32, f32>;
 
 /// Scoring method for sparse vectors
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum SparseScoring {
     /// Dot product between sparse vectors
+    #[default]
     DotProduct,
     /// Cosine similarity (normalized dot product)
     Cosine,
-}
-
-impl Default for SparseScoring {
-    fn default() -> Self {
-        SparseScoring::DotProduct
-    }
 }
 
 /// Hybrid index configuration
@@ -218,6 +213,7 @@ impl HybridIndex {
     }
 
     /// Computes the combined score using distribution-aware fusion
+    #[allow(dead_code)]
     fn combined_score(&self, dense_dist: f32, sparse_sim: f32) -> f32 {
         if self.config.use_normalization {
             // Normalize both scores to [0, 1]
@@ -428,7 +424,7 @@ mod tests {
         let mut index = HybridIndex::with_defaults(DistanceMetric::Euclidean);
 
         // Entry 0: close in dense, no sparse
-        let mut sparse0: SparseVector = HashMap::new();
+        let sparse0: SparseVector = HashMap::new();
         index.insert_hybrid(0, vec![0.0, 0.0], sparse0).unwrap();
 
         // Entry 1: far in dense, but has matching sparse terms

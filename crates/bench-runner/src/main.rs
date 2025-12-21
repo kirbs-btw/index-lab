@@ -225,6 +225,7 @@ where
 }
 
 /// Generic benchmark runner that handles common logic for all index types
+#[allow(clippy::too_many_arguments)]
 fn run_benchmark<F1, F2, F3>(
     _index_name: &str,
     load_fn: F1,
