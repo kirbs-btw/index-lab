@@ -1,4 +1,4 @@
-# index-la
+# index-lab
 Experimental playground for designing and benchmarking novel vector indexing algorithms.
 
 ## Layout
