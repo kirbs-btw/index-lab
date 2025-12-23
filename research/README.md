@@ -4,7 +4,7 @@
 
 ---
 
-## 📁 Files (5 total)
+## 📁 Files (6 total)
 
 | File | Purpose |
 |------|---------|
@@ -13,6 +13,7 @@
 | [**research_gap.md**](./research_gap.md) | Research opportunities + literature |
 | [**lim_algorithm_analysis.md**](./lim_algorithm_analysis.md) | LIM deep dive |
 | [**seer_analysis.md**](./seer_analysis.md) | SEER deep dive |
+| [**hybrid_analysis.md**](./hybrid_analysis.md) | Hybrid Index deep dive |
 
 ---
 
@@ -24,6 +25,7 @@
 | **Find research ideas** | [research_gap.md](./research_gap.md) |
 | **Fix LIM issues** | [lim_algorithm_analysis.md](./lim_algorithm_analysis.md) |
 | **Fix SEER issues** | [seer_analysis.md](./seer_analysis.md) |
+| **Fix Hybrid issues** | [hybrid_analysis.md](./hybrid_analysis.md) |
 
 ---
 
