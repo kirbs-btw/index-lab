@@ -4,7 +4,7 @@
 
 ---
 
-## 📁 Files (6 total)
+## 📁 Files (7 total)
 
 | File | Purpose |
 |------|---------|
@@ -14,6 +14,7 @@
 | [**lim_algorithm_analysis.md**](./lim_algorithm_analysis.md) | LIM deep dive |
 | [**seer_analysis.md**](./seer_analysis.md) | SEER deep dive |
 | [**hybrid_analysis.md**](./hybrid_analysis.md) | Hybrid Index deep dive |
+| [**nexus_proposal.md**](./nexus_proposal.md) | 🚀 Novel algorithm proposal
 
 ---
 
