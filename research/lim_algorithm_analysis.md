@@ -619,5 +619,3 @@ LIM addresses an important research gap (temporal vector indexing) but has signi
 3. **Features**: Missing deletion, updates, time windows
 4. **Theoretical**: No guarantees or formal analysis
 
-**However**, LIM's unique value proposition (temporal decay) makes it worth improving rather than abandoning. The recommended path forward is to address the critical issues while maintaining the temporal awareness that distinguishes it from existing algorithms.
-
