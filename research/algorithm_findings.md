@@ -184,7 +184,7 @@ Uses **learned random projections** to predict locality relationships between ve
 ## Related Documents
 
 - **Benchmark scenarios**: See [README.md](./README.md#-running-benchmarks)
-- **Research gaps**: See [research_gap.md](./research_gap.md) for full coverage
+- **Research gaps**: See [research_gaps.md](./research_gaps.md) for full coverage
 
 ---
 
@@ -219,6 +219,6 @@ Uses **learned random projections** to predict locality relationships between ve
 
 ---
 
-*Document updated: 2025-12-17*
-*See also: [seer_analysis.md](./seer_analysis.md), [lim_algorithm_analysis.md](./lim_algorithm_analysis.md), [research_gap.md](./research_gap.md)*
+*Document updated: 2025-12-28*
+*See also: [seer_analysis.md](./seer_analysis.md), [lim_analysis.md](./lim_analysis.md), [research_gaps.md](./research_gaps.md)*
 

@@ -1,8 +1,6 @@
 # Research Gaps and Open Opportunities in Vector Indexing
 
-> **Prerequisite**: For state-of-the-art algorithm references and paper citations, see [literature_review.md](./literature_review.md)
-
-This document provides a comprehensive analysis of research gaps and emerging opportunities in the vector indexing realm.
+This document provides a comprehensive analysis of research gaps and emerging opportunities in the vector indexing realm. For state-of-the-art algorithm references, see [Appendix A](#appendix-a-state-of-the-art-algorithms).
 
 
 

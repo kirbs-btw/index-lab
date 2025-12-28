@@ -276,7 +276,7 @@ SEER represents a promising research direction for learned vector indexing, but 
 **Next Steps**:
 1. Implement LSH bucketing (estimated: 2-3 hours)
 2. Benchmark against HNSW with equivalent recall targets
-3. Update [algorithm_findings.md](file:///Users/bastianlipka/Desktop/index-lab/research/algorithm_findings.md) with SEER results
+3. Update [algorithm_findings.md](./algorithm_findings.md) with SEER results
 
 ---
 

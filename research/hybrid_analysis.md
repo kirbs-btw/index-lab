@@ -177,4 +177,4 @@ The Hybrid Index successfully demonstrates **sparse-dense fusion with adaptive n
 ---
 
 *Document created: 2025-12-23*
-*See also: [algorithm_findings.md](./algorithm_findings.md), [research_gap.md](./research_gap.md)*
+*See also: [algorithm_findings.md](./algorithm_findings.md), [research_gaps.md](./research_gaps.md)*

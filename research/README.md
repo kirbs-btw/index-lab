@@ -10,8 +10,8 @@
 |------|---------|
 | **README.md** | Navigation (you're here) |
 | [**algorithm_findings.md**](./algorithm_findings.md) | ⭐ Summary of all algorithms |
-| [**research_gap.md**](./research_gap.md) | Research opportunities + literature |
-| [**lim_algorithm_analysis.md**](./lim_algorithm_analysis.md) | LIM deep dive |
+| [**research_gaps.md**](./research_gaps.md) | Research opportunities + literature |
+| [**lim_analysis.md**](./lim_analysis.md) | LIM deep dive |
 | [**seer_analysis.md**](./seer_analysis.md) | SEER deep dive |
 | [**hybrid_analysis.md**](./hybrid_analysis.md) | Hybrid Index deep dive |
 | [**nexus_proposal.md**](./nexus_proposal.md) | 🚀 Novel algorithm proposal
@@ -23,8 +23,8 @@
 | Goal | Read |
 |------|------|
 | **Understand the project** | [algorithm_findings.md](./algorithm_findings.md) |
-| **Find research ideas** | [research_gap.md](./research_gap.md) |
-| **Fix LIM issues** | [lim_algorithm_analysis.md](./lim_algorithm_analysis.md) |
+| **Find research ideas** | [research_gaps.md](./research_gaps.md) |
+| **Fix LIM issues** | [lim_analysis.md](./lim_analysis.md) |
 | **Fix SEER issues** | [seer_analysis.md](./seer_analysis.md) |
 | **Fix Hybrid issues** | [hybrid_analysis.md](./hybrid_analysis.md) |
 
@@ -70,7 +70,7 @@
 ---
 
 ### 2. LIM: O(n) Cluster Search
-**File**: [lim_algorithm_analysis.md](./lim_algorithm_analysis.md)
+**File**: [lim_analysis.md](./lim_analysis.md)
 
 | Problem | Root Cause | Fix |
 |---------|-----------|-----|
@@ -111,6 +111,6 @@ cargo run --release -p bench-runner -- --scenario io-heavy        # Stress test
 | FAISS | Johnson et al. | 2017 | GPU-accelerated baseline |
 | RaBitQ | Gao & Long | 2024 | SIGMOD Best Paper, 1-bit quantization |
 
-Full citations in [research_gap.md](./research_gap.md#appendix-a-state-of-the-art-algorithms).
+Full citations in [research_gaps.md](./research_gaps.md#appendix-a-state-of-the-art-algorithms).
 
 ---
