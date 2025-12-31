@@ -11,6 +11,7 @@ A summary of findings from the novel algorithms implemented and tested in `index
 | **LIM** (Locality Index Method) | `index-lim` | Novel | Temporal vector indexing (Gap 1C) |
 | **Hybrid Index** | `index-hybrid` | Novel | Sparse-Dense Fusion (Gap 2A, 2B) |
 | **SEER** (Similarity Estimation via Efficient Routing) | `index-seer` | Novel | Learned Index Structures (Gap 3A) |
+| **SWIFT** (Sparse-Weighted Index with Fast Traversal) | `index-swift` | Novel | Fast candidate generation (fixes SEER O(n)) |
 | **HNSW** | `index-hnsw` | Baseline | Graph-based state-of-the-art |
 | **IVF** | `index-ivf` | Baseline | Clustering-based indexing |
 | **PQ** | `index-pq` | Baseline | Compression via quantization |

@@ -313,7 +313,7 @@ impl VectorIndex for SeerIndex {
 
         // If we've already built, mark as needing rebuild for optimal performance
         // (In practice, we'd want incremental updates, but for now just note it)
-        if self.is_built && self.vectors.len().is_multiple_of(1000) {
+        if self.is_built && self.vectors.len() % 1000 == 0 {
             // Periodically retrain on new data
             self.train_predictor();
         }

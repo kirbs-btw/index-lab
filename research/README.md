@@ -39,6 +39,7 @@
 | **LIM** | Temporal-aware vector search | ✅ Works | ⚠️ O(n) insertion |
 | **Hybrid** | Dense + sparse fusion | ✅ Works | ⚠️ Linear scan |
 | **SEER** | Learned locality prediction | ✅ Works | 🔴 25× slower than baseline |
+| **SWIFT** | LSH bucketing + mini-graphs | ✅ Works | ⚠️ Needs recall tuning (20× faster than linear!) |
 
 ### Research Gaps Addressed
 
@@ -47,6 +48,7 @@
 | 1C | Temporal vector indexing | **LIM** | ✅ Implemented |
 | 2A, 2B | Sparse-Dense Fusion | **Hybrid** | ✅ Implemented |
 | 3A | Learned index structures | **SEER** | ⚠️ Needs optimization |
+| 3A | Fast candidate generation | **SWIFT** | ✅ Implemented (fixes SEER's O(n) issue) |
 
 ### Gaps Not Yet Explored
 - Gap 4: Privacy-preserving search

@@ -127,7 +127,7 @@ impl PqIndex {
 
         // Validate dimension is divisible by m
         ensure!(
-            dimension.is_multiple_of(self.config.m),
+            dimension % self.config.m == 0,
             PqError::DimensionNotDivisible {
                 dimension,
                 m: self.config.m

@@ -1,0 +1,13 @@
+[package]
+name = "index-swift"
+version = "0.1.0"
+edition = "2021"
+description = "SWIFT: Sparse-Weighted Index with Fast Traversal - combining LSH bucketing with mini-graphs"
+
+[dependencies]
+anyhow = { workspace = true }
+index-core = { path = "../index-core" }
+rand = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

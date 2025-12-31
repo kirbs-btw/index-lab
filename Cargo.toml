@@ -8,6 +8,7 @@ members = [
     "crates/index-lim",
     "crates/index-hybrid",
     "crates/index-seer",
+    "crates/index-swift",
     "crates/bench-runner",
 ]
 resolver = "2"

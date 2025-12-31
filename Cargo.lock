@@ -72,6 +72,7 @@ dependencies = [
  "index-linear",
  "index-pq",
  "index-seer",
+ "index-swift",
  "rand",
  "serde",
  "serde_json",
@@ -229,6 +230,18 @@ dependencies = [
 
 [[package]]
 name = "index-seer"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "index-core",
+ "rand",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "index-swift"
 version = "0.1.0"
 dependencies = [
  "anyhow",
