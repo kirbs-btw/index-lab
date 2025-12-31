@@ -220,6 +220,5 @@ Uses **learned random projections** to predict locality relationships between ve
 
 ---
 
-*Document updated: 2025-12-28*
 *See also: [seer_analysis.md](./seer_analysis.md), [lim_analysis.md](./lim_analysis.md), [research_gaps.md](./research_gaps.md)*
 
