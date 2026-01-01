@@ -278,6 +278,4 @@ SEER represents a promising research direction for learned vector indexing, but 
 2. Benchmark against HNSW with equivalent recall targets
 3. Update [algorithm_findings.md](./algorithm_findings.md) with SEER results
 
----
-
-*Analysis performed with `bench-runner` smoke and recall-baseline scenarios.*
+--
