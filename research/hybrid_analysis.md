@@ -172,9 +172,6 @@ The Hybrid Index successfully demonstrates **sparse-dense fusion with adaptive n
 | 10K-100K vectors | Add inverted index |
 | >100K vectors | Add inverted index + HNSW integration |
 
-**Estimated fix time**: 3-4 hours for inverted index + HNSW integration.
+**Estimated fix time**: 3-4 hours for inverted index + HNSW 
 
----
-
-*Document created: 2025-12-23*
 *See also: [algorithm_findings.md](./algorithm_findings.md), [research_gaps.md](./research_gaps.md)*
