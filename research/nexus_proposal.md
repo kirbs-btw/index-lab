@@ -364,5 +364,4 @@ The key bet: **The manifold is real, and learning to navigate it beats blindly w
 
 ---
 
-*Proposal created: 2025-12-24*
 *Status: Conceptual - awaiting implementation*
