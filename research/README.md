@@ -4,7 +4,7 @@
 
 ---
 
-## 📁 Files (7 total)
+## 📁 Files (9 total)
 
 | File | Purpose |
 |------|---------|
@@ -14,7 +14,9 @@
 | [**lim_analysis.md**](./lim_analysis.md) | LIM deep dive |
 | [**seer_analysis.md**](./seer_analysis.md) | SEER deep dive |
 | [**hybrid_analysis.md**](./hybrid_analysis.md) | Hybrid Index deep dive |
-| [**nexus_proposal.md**](./nexus_proposal.md) | 🚀 Novel algorithm proposal
+| [**swift_proposal.md**](./swift_proposal.md) | 🚀 SWIFT algorithm proposal (LSH + mini-graphs) |
+| [**nexus_proposal.md**](./nexus_proposal.md) | 🚀 NEXUS algorithm proposal (spectral + neural) |
+| [**prism_proposal.md**](./prism_proposal.md) | 🚀 PRISM algorithm proposal (session-aware) |
 
 ---
 
@@ -54,7 +56,9 @@
 - Gap 4: Privacy-preserving search
 - Gap 5: Energy efficiency  
 - Gap 6: Robustness/reproducibility
-- Gap 7: Context-aware retrieval
+
+### Gaps Proposed (Ready for Implementation)
+- Gap 7: Context-aware retrieval → **[PRISM](./prism_proposal.md)**
 
 ---
 
