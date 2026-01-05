@@ -4,6 +4,9 @@
 //! subvectors and quantizing each subvector using a codebook. During search,
 //! approximate distances are computed using lookup tables for efficiency.
 
+#![allow(unknown_lints)]
+#![allow(clippy::manual_is_multiple_of)]
+
 use anyhow::{ensure, Result};
 use index_core::{
     distance, load_index, save_index, validate_dimension, DistanceMetric, ScoredPoint, Vector,

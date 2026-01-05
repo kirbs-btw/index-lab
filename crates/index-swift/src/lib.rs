@@ -50,12 +50,12 @@ pub struct SwiftConfig {
 impl Default for SwiftConfig {
     fn default() -> Self {
         Self {
-            n_hyperplanes: 8,      // 256 buckets
-            n_probes: 4,           // Check 4 buckets per query
-            mini_graph_m: 8,       // 8 edges per node in mini-graphs
-            ef_construction: 50,   // Construction quality
-            ef_search: 32,         // Search quality
-            min_bucket_size: 16,   // Linear scan for very small buckets
+            n_hyperplanes: 8,    // 256 buckets
+            n_probes: 4,         // Check 4 buckets per query
+            mini_graph_m: 8,     // 8 edges per node in mini-graphs
+            ef_construction: 50, // Construction quality
+            ef_search: 32,       // Search quality
+            min_bucket_size: 16, // Linear scan for very small buckets
         }
     }
 }
@@ -325,7 +325,11 @@ impl MiniGraph {
         }
 
         // Sort by distance and return top-k local indices
-        results.sort_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap_or(Ordering::Equal));
+        results.sort_by(|a, b| {
+            a.distance
+                .partial_cmp(&b.distance)
+                .unwrap_or(Ordering::Equal)
+        });
         Ok(results.into_iter().take(k).map(|e| e.local_idx).collect())
     }
 
@@ -636,7 +640,13 @@ impl VectorIndex for SwiftIndex {
 
             // Search the mini-graph or do linear scan
             let candidates = if bucket.is_built && bucket.len() >= self.config.min_bucket_size {
-                bucket.search(query, &self.vectors, self.metric, limit * 2, self.config.ef_search)?
+                bucket.search(
+                    query,
+                    &self.vectors,
+                    self.metric,
+                    limit * 2,
+                    self.config.ef_search,
+                )?
             } else {
                 bucket.linear_search(query, &self.vectors, self.metric, limit * 2)?
             };
@@ -671,10 +681,10 @@ mod tests {
     fn test_lsh_bucketer_deterministic() {
         let mut rng = StdRng::seed_from_u64(42);
         let bucketer = LshBucketer::new(4, 4, &mut rng);
-        
+
         let v1 = vec![1.0, 0.0, 0.0, 0.0];
         let v2 = vec![1.0, 0.0, 0.0, 0.0];
-        
+
         assert_eq!(bucketer.hash(&v1), bucketer.hash(&v2));
     }
 
@@ -682,22 +692,22 @@ mod tests {
     fn test_lsh_similar_vectors_likely_same_bucket() {
         let mut rng = StdRng::seed_from_u64(42);
         let bucketer = LshBucketer::new(4, 4, &mut rng);
-        
+
         let v1 = vec![1.0, 0.0, 0.0, 0.0];
         let v2 = vec![0.99, 0.01, 0.0, 0.0];
-        
+
         // Similar vectors should often (but not always) hash to same bucket
         // At minimum, they should be in each other's probe set
         let probes1 = bucketer.get_probe_buckets(&v1, 4);
         let bucket2 = bucketer.hash(&v2);
-        
+
         assert!(probes1.contains(&bucket2) || bucketer.hash(&v1) == bucket2);
     }
 
     #[test]
     fn test_insert_and_search() {
         let mut index = SwiftIndex::with_defaults(DistanceMetric::Euclidean).with_seed(42);
-        
+
         // Insert some vectors
         index.insert(0, vec![0.0, 0.0]).unwrap();
         index.insert(1, vec![1.0, 0.0]).unwrap();
@@ -716,7 +726,7 @@ mod tests {
     #[test]
     fn test_build_and_search() {
         let mut index = SwiftIndex::with_defaults(DistanceMetric::Euclidean).with_seed(42);
-        
+
         let data = vec![
             (0, vec![0.0, 0.0]),
             (1, vec![1.0, 0.0]),
@@ -724,9 +734,9 @@ mod tests {
             (3, vec![1.0, 1.0]),
             (4, vec![0.5, 0.5]),
         ];
-        
+
         index.build(data).unwrap();
-        
+
         let result = index.search(&vec![0.0, 0.0], 2).unwrap();
         assert_eq!(result[0].id, 0);
         assert!(result[0].distance < 0.1);
@@ -735,7 +745,7 @@ mod tests {
     #[test]
     fn test_larger_dataset() {
         let mut index = SwiftIndex::with_defaults(DistanceMetric::Euclidean).with_seed(42);
-        
+
         // Create a larger dataset
         let mut data = Vec::new();
         for i in 0..1000 {
@@ -743,13 +753,13 @@ mod tests {
             let y = (i / 10) as f32;
             data.push((i, vec![x, y]));
         }
-        
+
         index.build(data).unwrap();
-        
+
         // Search for something close to the center
         let result = index.search(&vec![5.0, 5.0], 5).unwrap();
         assert_eq!(result.len(), 5);
-        
+
         // The closest should be (5, 5) which is id 55
         assert_eq!(result[0].id, 55);
         assert!(result[0].distance < 0.1);
@@ -771,34 +781,34 @@ mod tests {
     #[test]
     fn test_save_and_load() {
         use std::env::temp_dir;
-        
+
         let mut original = SwiftIndex::with_defaults(DistanceMetric::Euclidean).with_seed(42);
-        
+
         let data = vec![
             (0, vec![0.0, 0.0]),
             (1, vec![1.0, 0.0]),
             (2, vec![0.0, 1.0]),
         ];
         original.build(data).unwrap();
-        
+
         let mut path = temp_dir();
         path.push(format!("test_swift_index_{}.json", std::process::id()));
-        
+
         original.save(&path).unwrap();
         let loaded = SwiftIndex::load(&path).unwrap();
-        
+
         assert_eq!(loaded.metric(), original.metric());
         assert_eq!(loaded.len(), original.len());
         assert_eq!(loaded.dimension(), original.dimension());
-        
+
         // Verify search results match
         let query = vec![0.0, 0.0];
         let orig_results = original.search(&query, 2).unwrap();
         let loaded_results = loaded.search(&query, 2).unwrap();
-        
+
         assert_eq!(orig_results.len(), loaded_results.len());
         assert_eq!(orig_results[0].id, loaded_results[0].id);
-        
+
         // Cleanup
         let _ = std::fs::remove_file(&path);
     }
@@ -806,16 +816,16 @@ mod tests {
     #[test]
     fn test_bucket_stats() {
         let mut index = SwiftIndex::with_defaults(DistanceMetric::Euclidean).with_seed(42);
-        
+
         let mut data = Vec::new();
         for i in 0..100 {
             let x = (i % 10) as f32 / 10.0;
             let y = (i / 10) as f32 / 10.0;
             data.push((i, vec![x, y]));
         }
-        
+
         index.build(data).unwrap();
-        
+
         let (non_empty, max, avg) = index.bucket_stats();
         assert!(non_empty > 0);
         assert!(max > 0);
@@ -825,16 +835,16 @@ mod tests {
     #[test]
     fn test_cosine_metric() {
         let mut index = SwiftIndex::with_defaults(DistanceMetric::Cosine).with_seed(42);
-        
+
         // Normalized vectors for cosine
         let data = vec![
             (0, vec![1.0, 0.0]),
             (1, vec![0.0, 1.0]),
             (2, vec![0.707, 0.707]),
         ];
-        
+
         index.build(data).unwrap();
-        
+
         let result = index.search(&vec![1.0, 0.0], 3).unwrap();
         assert_eq!(result[0].id, 0); // Should match itself
     }
