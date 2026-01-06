@@ -16,7 +16,7 @@
 | [**hybrid_analysis.md**](./hybrid_analysis.md) | Hybrid Index deep dive |
 | [**swift_proposal.md**](./swift_proposal.md) | 🚀 SWIFT algorithm proposal (LSH + mini-graphs) |
 | [**nexus_proposal.md**](./nexus_proposal.md) | 🚀 NEXUS algorithm proposal (spectral + neural) |
-| [**prism_proposal.md**](./prism_proposal.md) | 🚀 PRISM algorithm proposal (session-aware) |
+| [**prism_analysis.md**](./prism_analysis.md) | ✅ PRISM algorithm analysis (session-aware) |
 
 ---
 
@@ -42,6 +42,7 @@
 | **Hybrid** | Dense + sparse fusion | ✅ Works | ⚠️ Linear scan |
 | **SEER** | Learned locality prediction | ✅ Works | 🔴 25× slower than baseline |
 | **SWIFT** | LSH bucketing + mini-graphs | ✅ Works | ⚠️ Needs recall tuning (20× faster than linear!) |
+| **PRISM** | Session-aware adaptive search | ✅ Works | Session state requires mutable access |
 
 ### Research Gaps Addressed
 
@@ -50,15 +51,13 @@
 | 1C | Temporal vector indexing | **LIM** | ✅ Implemented |
 | 2A, 2B | Sparse-Dense Fusion | **Hybrid** | ✅ Implemented |
 | 3A | Learned index structures | **SEER** | ⚠️ Needs optimization |
-| 3A | Fast candidate generation | **SWIFT** | ✅ Implemented (fixes SEER's O(n) issue) |
+| 3A | Fast candidate generation | **SWIFT** | ✅ Implemented |
+| 7 | Context-aware, adaptive search | **PRISM** | ✅ Implemented |
 
 ### Gaps Not Yet Explored
 - Gap 4: Privacy-preserving search
 - Gap 5: Energy efficiency  
 - Gap 6: Robustness/reproducibility
-
-### Gaps Proposed (Ready for Implementation)
-- Gap 7: Context-aware retrieval → **[PRISM](./prism_proposal.md)**
 
 ---
 

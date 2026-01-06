@@ -9,6 +9,7 @@ members = [
     "crates/index-hybrid",
     "crates/index-seer",
     "crates/index-swift",
+    "crates/index-prism",
     "crates/bench-runner",
 ]
 resolver = "2"

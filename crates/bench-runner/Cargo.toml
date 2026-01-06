@@ -15,6 +15,7 @@ index-lim = { path = "../index-lim" }
 index-hybrid = { path = "../index-hybrid" }
 index-seer = { path = "../index-seer" }
 index-swift = { path = "../index-swift" }
+index-prism = { path = "../index-prism" }
 rand = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

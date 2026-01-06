@@ -20,6 +20,7 @@ use index_linear::LinearIndex;
 use index_pq::PqIndex;
 use index_seer::SeerIndex;
 use index_swift::SwiftIndex;
+use index_prism::PrismIndex;
 use scenarios::{ScenarioDetails, ScenarioKind};
 use serde::Serialize;
 use std::collections::HashSet;
@@ -34,6 +35,7 @@ enum IndexWrapper {
     Hybrid(HybridIndex),
     Seer(SeerIndex),
     Swift(SwiftIndex),
+    Prism(PrismIndex),
 }
 
 impl VectorIndex for IndexWrapper {
@@ -47,6 +49,7 @@ impl VectorIndex for IndexWrapper {
             Self::Hybrid(idx) => idx.metric(),
             Self::Seer(idx) => idx.metric(),
             Self::Swift(idx) => idx.metric(),
+            Self::Prism(idx) => idx.metric(),
         }
     }
 
@@ -60,6 +63,7 @@ impl VectorIndex for IndexWrapper {
             Self::Hybrid(idx) => idx.len(),
             Self::Seer(idx) => idx.len(),
             Self::Swift(idx) => idx.len(),
+            Self::Prism(idx) => idx.len(),
         }
     }
 
@@ -73,6 +77,7 @@ impl VectorIndex for IndexWrapper {
             Self::Hybrid(idx) => idx.insert(id, vector),
             Self::Seer(idx) => idx.insert(id, vector),
             Self::Swift(idx) => idx.insert(id, vector),
+            Self::Prism(idx) => idx.insert(id, vector),
         }
     }
 
@@ -86,6 +91,7 @@ impl VectorIndex for IndexWrapper {
             Self::Hybrid(idx) => idx.search(query, limit),
             Self::Seer(idx) => idx.search(query, limit),
             Self::Swift(idx) => idx.search(query, limit),
+            Self::Prism(idx) => idx.search(query, limit),
         }
     }
 }
@@ -100,6 +106,7 @@ enum IndexType {
     Hybrid,
     Seer,
     Swift,
+    Prism,
 }
 
 #[derive(Debug, Parser)]
@@ -706,6 +713,51 @@ fn main() -> Result<()> {
                 &cli,
             )?;
         }
+        IndexType::Prism => {
+            run_benchmark(
+                "PRISM",
+                |load_path| {
+                    println!("Loading PRISM index from {}...", load_path.display());
+                    let load_start = Instant::now();
+                    let loaded = PrismIndex::load(load_path).with_context(|| {
+                        format!("failed to load index from {}", load_path.display())
+                    })?;
+                    let load_time = load_start.elapsed();
+                    println!(
+                        "Loaded index in {:.2?} ({} vectors, metric: {:?})",
+                        load_time,
+                        loaded.len(),
+                        loaded.metric()
+                    );
+                    Ok((IndexWrapper::Prism(loaded), load_time))
+                },
+                || {
+                    let mut index = PrismIndex::with_defaults(runtime.metric);
+                    let build_start = Instant::now();
+                    index.build(dataset.clone())?;
+                    let build_time = build_start.elapsed();
+                    Ok((IndexWrapper::Prism(index), build_time))
+                },
+                |idx, path| {
+                    if let IndexWrapper::Prism(inner) = idx {
+                        inner.save(path).with_context(|| {
+                            format!("failed to save index to {}", path.display())
+                        })?;
+                        println!(
+                            "Saved PRISM index to {} ({} vectors)",
+                            path.display(),
+                            inner.len()
+                        );
+                    }
+                    Ok(())
+                },
+                false, // Not exhaustive (uses HNSW underneath with session optimization)
+                &dataset,
+                &queries,
+                &runtime,
+                &cli,
+            )?;
+        }
     }
 
     // Note: report_json is handled in print_results if needed
@@ -751,6 +803,7 @@ fn print_results(
         IndexWrapper::Hybrid(_) => "hybrid",
         IndexWrapper::Seer(_) => "seer",
         IndexWrapper::Swift(_) => "swift",
+        IndexWrapper::Prism(_) => "prism",
     };
 
     let (avg_recall, min_recall, max_recall) = recall_metrics;

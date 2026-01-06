@@ -71,6 +71,7 @@ dependencies = [
  "index-lim",
  "index-linear",
  "index-pq",
+ "index-prism",
  "index-seer",
  "index-swift",
  "rand",
@@ -222,6 +223,19 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "index-core",
+ "rand",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "index-prism"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "index-core",
+ "index-hnsw",
  "rand",
  "serde",
  "serde_json",
