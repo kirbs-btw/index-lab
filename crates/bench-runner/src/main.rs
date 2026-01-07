@@ -21,6 +21,7 @@ use index_pq::PqIndex;
 use index_seer::SeerIndex;
 use index_swift::SwiftIndex;
 use index_prism::PrismIndex;
+use index_nexus::NexusIndex;
 use scenarios::{ScenarioDetails, ScenarioKind};
 use serde::Serialize;
 use std::collections::HashSet;
@@ -36,6 +37,7 @@ enum IndexWrapper {
     Seer(SeerIndex),
     Swift(SwiftIndex),
     Prism(PrismIndex),
+    Nexus(NexusIndex),
 }
 
 impl VectorIndex for IndexWrapper {
@@ -50,6 +52,7 @@ impl VectorIndex for IndexWrapper {
             Self::Seer(idx) => idx.metric(),
             Self::Swift(idx) => idx.metric(),
             Self::Prism(idx) => idx.metric(),
+            Self::Nexus(idx) => idx.metric(),
         }
     }
 
@@ -64,6 +67,7 @@ impl VectorIndex for IndexWrapper {
             Self::Seer(idx) => idx.len(),
             Self::Swift(idx) => idx.len(),
             Self::Prism(idx) => idx.len(),
+            Self::Nexus(idx) => idx.len(),
         }
     }
 
@@ -78,6 +82,7 @@ impl VectorIndex for IndexWrapper {
             Self::Seer(idx) => idx.insert(id, vector),
             Self::Swift(idx) => idx.insert(id, vector),
             Self::Prism(idx) => idx.insert(id, vector),
+            Self::Nexus(idx) => idx.insert(id, vector),
         }
     }
 
@@ -92,6 +97,7 @@ impl VectorIndex for IndexWrapper {
             Self::Seer(idx) => idx.search(query, limit),
             Self::Swift(idx) => idx.search(query, limit),
             Self::Prism(idx) => idx.search(query, limit),
+            Self::Nexus(idx) => idx.search(query, limit),
         }
     }
 }
@@ -107,6 +113,7 @@ enum IndexType {
     Seer,
     Swift,
     Prism,
+    Nexus,
 }
 
 #[derive(Debug, Parser)]
@@ -758,6 +765,51 @@ fn main() -> Result<()> {
                 &cli,
             )?;
         }
+        IndexType::Nexus => {
+            run_benchmark(
+                "NEXUS",
+                |load_path| {
+                    println!("Loading NEXUS index from {}...", load_path.display());
+                    let load_start = Instant::now();
+                    let loaded = NexusIndex::load(load_path).with_context(|| {
+                        format!("failed to load index from {}", load_path.display())
+                    })?;
+                    let load_time = load_start.elapsed();
+                    println!(
+                        "Loaded index in {:.2?} ({} vectors, metric: {:?})",
+                        load_time,
+                        loaded.len(),
+                        loaded.metric()
+                    );
+                    Ok((IndexWrapper::Nexus(loaded), load_time))
+                },
+                || {
+                    let mut index = NexusIndex::with_defaults(runtime.metric);
+                    let build_start = Instant::now();
+                    index.build(dataset.clone())?;
+                    let build_time = build_start.elapsed();
+                    Ok((IndexWrapper::Nexus(index), build_time))
+                },
+                |idx, path| {
+                    if let IndexWrapper::Nexus(inner) = idx {
+                        inner.save(path).with_context(|| {
+                            format!("failed to save index to {}", path.display())
+                        })?;
+                        println!(
+                            "Saved NEXUS index to {} ({} vectors)",
+                            path.display(),
+                            inner.len()
+                        );
+                    }
+                    Ok(())
+                },
+                false, // Not exhaustive (uses spectral shortcuts)
+                &dataset,
+                &queries,
+                &runtime,
+                &cli,
+            )?;
+        }
     }
 
     // Note: report_json is handled in print_results if needed
@@ -804,6 +856,7 @@ fn print_results(
         IndexWrapper::Seer(_) => "seer",
         IndexWrapper::Swift(_) => "swift",
         IndexWrapper::Prism(_) => "prism",
+        IndexWrapper::Nexus(_) => "nexus",
     };
 
     let (avg_recall, min_recall, max_recall) = recall_metrics;

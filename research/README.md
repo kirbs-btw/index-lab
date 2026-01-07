@@ -15,7 +15,7 @@
 | [**seer_analysis.md**](./seer_analysis.md) | SEER deep dive |
 | [**hybrid_analysis.md**](./hybrid_analysis.md) | Hybrid Index deep dive |
 | [**swift_proposal.md**](./swift_proposal.md) | 🚀 SWIFT algorithm proposal (LSH + mini-graphs) |
-| [**nexus_proposal.md**](./nexus_proposal.md) | 🚀 NEXUS algorithm proposal (spectral + neural) |
+| [**nexus_analysis.md**](./nexus_analysis.md) | ✅ NEXUS algorithm analysis (spectral + adaptive) |
 | [**prism_analysis.md**](./prism_analysis.md) | ✅ PRISM algorithm analysis (session-aware) |
 
 ---
@@ -43,6 +43,7 @@
 | **SEER** | Learned locality prediction | ✅ Works | 🔴 25× slower than baseline |
 | **SWIFT** | LSH bucketing + mini-graphs | ✅ Works | ⚠️ Needs recall tuning (20× faster than linear!) |
 | **PRISM** | Session-aware adaptive search | ✅ Works | Session state requires mutable access |
+| **NEXUS** | Spectral embedding + adaptive graph | ✅ Works | O(n²) graph build time |
 
 ### Research Gaps Addressed
 
@@ -52,6 +53,7 @@
 | 2A, 2B | Sparse-Dense Fusion | **Hybrid** | ✅ Implemented |
 | 3A | Learned index structures | **SEER** | ⚠️ Needs optimization |
 | 3A | Fast candidate generation | **SWIFT** | ✅ Implemented |
+| 3A | Spectral manifold learning | **NEXUS** | ✅ Implemented |
 | 7 | Context-aware, adaptive search | **PRISM** | ✅ Implemented |
 
 ### Gaps Not Yet Explored

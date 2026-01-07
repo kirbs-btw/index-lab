@@ -70,6 +70,7 @@ dependencies = [
  "index-ivf",
  "index-lim",
  "index-linear",
+ "index-nexus",
  "index-pq",
  "index-prism",
  "index-seer",
@@ -212,6 +213,18 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "index-core",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "index-nexus"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "index-core",
+ "rand",
  "serde",
  "serde_json",
  "thiserror",
