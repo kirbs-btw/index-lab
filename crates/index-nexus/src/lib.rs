@@ -43,7 +43,7 @@ impl SpectralProjector {
     /// Creates a random projection matrix
     fn new(original_dim: usize, spectral_dim: usize, seed: u64) -> Self {
         let mut rng = StdRng::seed_from_u64(seed);
-        
+
         // Generate random Gaussian projections (normalized)
         let scale = 1.0 / (spectral_dim as f32).sqrt();
         let projections: Vec<Vec<f32>> = (0..spectral_dim)
@@ -69,12 +69,7 @@ impl SpectralProjector {
     fn project(&self, vector: &[f32]) -> Vec<f32> {
         self.projections
             .iter()
-            .map(|proj| {
-                proj.iter()
-                    .zip(vector.iter())
-                    .map(|(p, v)| p * v)
-                    .sum()
-            })
+            .map(|proj| proj.iter().zip(vector.iter()).map(|(p, v)| p * v).sum())
             .collect()
     }
 }
@@ -154,7 +149,12 @@ impl AdaptiveGraph {
     }
 
     /// Builds the graph from vectors and their spectral embeddings
-    fn build(&mut self, vectors: &[(usize, Vector)], spectral_vecs: &[Vec<f32>], metric: DistanceMetric) {
+    fn build(
+        &mut self,
+        vectors: &[(usize, Vector)],
+        spectral_vecs: &[Vec<f32>],
+        metric: DistanceMetric,
+    ) {
         let n = vectors.len();
         if n == 0 {
             return;
@@ -337,7 +337,10 @@ impl PartialOrd for SearchEntry {
 impl Ord for SearchEntry {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         // Reverse for min-heap (smallest distance first)
-        other.distance.partial_cmp(&self.distance).unwrap_or(std::cmp::Ordering::Equal)
+        other
+            .distance
+            .partial_cmp(&self.distance)
+            .unwrap_or(std::cmp::Ordering::Equal)
     }
 }
 
@@ -352,7 +355,7 @@ impl VectorIndex for NexusIndex {
 
     fn build(&mut self, data: impl IntoIterator<Item = (usize, Vector)>) -> Result<()> {
         let vectors: Vec<(usize, Vector)> = data.into_iter().collect();
-        
+
         if vectors.is_empty() {
             return Ok(());
         }
@@ -365,10 +368,8 @@ impl VectorIndex for NexusIndex {
         let projector = SpectralProjector::new(dim, self.config.spectral_dim, self.config.seed);
 
         // Project all vectors to spectral space
-        let spectral_vecs: Vec<Vec<f32>> = vectors
-            .iter()
-            .map(|(_, v)| projector.project(v))
-            .collect();
+        let spectral_vecs: Vec<Vec<f32>> =
+            vectors.iter().map(|(_, v)| projector.project(v)).collect();
 
         self.projector = Some(projector);
 
@@ -395,7 +396,8 @@ impl VectorIndex for NexusIndex {
         );
 
         // Project to spectral space
-        let spectral = self.projector
+        let spectral = self
+            .projector
             .as_ref()
             .map(|p| p.project(&vector))
             .unwrap_or_else(|| vec![0.0; self.config.spectral_dim]);
@@ -417,8 +419,7 @@ impl VectorIndex for NexusIndex {
         ensure!(!self.graph.nodes.is_empty(), NexusError::EmptyIndex);
         ensure!(self.is_built, NexusError::NotBuilt);
 
-        let q_spectral = self.project_query(query)
-            .ok_or(NexusError::NotBuilt)?;
+        let q_spectral = self.project_query(query).ok_or(NexusError::NotBuilt)?;
 
         // Phase 1: Graph traversal using spectral distances
         let mut visited: HashSet<usize> = HashSet::new();
@@ -455,7 +456,8 @@ impl VectorIndex for NexusIndex {
             // Add neighbors to candidates
             for &neighbor_idx in self.graph.neighbors(current.node_idx) {
                 if !visited.contains(&neighbor_idx) {
-                    let s_dist = spectral_distance(&q_spectral, &self.graph.nodes[neighbor_idx].spectral);
+                    let s_dist =
+                        spectral_distance(&q_spectral, &self.graph.nodes[neighbor_idx].spectral);
                     candidates.push(SearchEntry {
                         node_idx: neighbor_idx,
                         distance: s_dist,
@@ -509,7 +511,7 @@ mod tests {
     #[test]
     fn spectral_projection_preserves_relative_distances() {
         let projector = SpectralProjector::new(64, 16, 42);
-        
+
         let v1 = vec![0.0; 64];
         let v2: Vec<f32> = (0..64).map(|i| i as f32 / 64.0).collect();
         let v3: Vec<f32> = (0..64).map(|i| (i as f32 / 64.0) * 2.0).collect();
@@ -521,8 +523,11 @@ mod tests {
         // v1 should be closer to v2 than to v3
         let d12 = spectral_distance(&s1, &s2);
         let d13 = spectral_distance(&s1, &s3);
-        
-        assert!(d12 < d13, "Spectral projection should preserve relative distances");
+
+        assert!(
+            d12 < d13,
+            "Spectral projection should preserve relative distances"
+        );
     }
 
     #[test]
@@ -535,8 +540,10 @@ mod tests {
         let varied_dists = vec![0.1, 0.5, 2.0, 5.0];
         let varied_entropy = AdaptiveGraph::compute_local_entropy(&varied_dists);
 
-        assert!(uniform_entropy > varied_entropy, 
-            "Uniform distances should have higher entropy");
+        assert!(
+            uniform_entropy > varied_entropy,
+            "Uniform distances should have higher entropy"
+        );
     }
 
     #[test]
@@ -583,7 +590,7 @@ mod tests {
         // Query near first cluster
         let result = index.search(&vec![0.1, 0.1], 5).unwrap();
         assert_eq!(result.len(), 5);
-        
+
         // All results should be from first cluster (IDs 0-49)
         for point in &result {
             assert!(point.id < 50, "Should find points from near cluster");
@@ -593,7 +600,7 @@ mod tests {
     #[test]
     fn adaptive_graph_assigns_variable_edges() {
         let mut index = NexusIndex::with_defaults(DistanceMetric::Euclidean);
-        
+
         // Create data with different densities
         let mut data = Vec::new();
         // Dense cluster
@@ -614,7 +621,9 @@ mod tests {
     #[test]
     fn save_and_load_roundtrip() {
         let mut index = NexusIndex::with_defaults(DistanceMetric::Euclidean);
-        index.build(vec![(0, vec![1.0, 2.0]), (1, vec![3.0, 4.0])]).unwrap();
+        index
+            .build(vec![(0, vec![1.0, 2.0]), (1, vec![3.0, 4.0])])
+            .unwrap();
 
         let temp_path = std::env::temp_dir().join("nexus_test_index.json");
         index.save(&temp_path).unwrap();

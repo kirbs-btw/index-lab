@@ -169,25 +169,25 @@ impl SessionMemory {
     }
 
     /// Gets the closest hot nodes to a query
-    fn get_closest_hot_nodes(&self, base_index: &HnswIndex, query: &[f32], n: usize) -> Vec<usize> {
+    #[allow(dead_code)] // Reserved for future warm-start implementation
+    fn get_closest_hot_nodes(
+        &self,
+        _base_index: &HnswIndex,
+        _query: &[f32],
+        n: usize,
+    ) -> Vec<usize> {
         if self.hot_nodes.is_empty() {
             return Vec::new();
         }
 
-        let metric = base_index.metric();
-
-        // Score hot nodes by distance to query
+        // Score hot nodes by hit count (higher = more likely to be useful)
         let mut scored: Vec<_> = self
             .hot_nodes
             .iter()
-            .filter_map(|entry| {
-                // We need to get the vector from the base index, but we don't have direct access
-                // For now, we'll just use the hot nodes directly
-                Some((entry.node_id, entry.hit_count as f32))
-            })
+            .map(|entry| (entry.node_id, entry.hit_count as f32))
             .collect();
 
-        // Sort by hit count (higher = more likely to be useful)
+        // Sort by hit count (higher first)
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         scored.into_iter().take(n).map(|(id, _)| id).collect()
@@ -200,12 +200,12 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
         return 0.0;
     }
 
-    let (dot, norm_a, norm_b) =
-        a.iter()
-            .zip(b.iter())
-            .fold((0.0f32, 0.0f32, 0.0f32), |(dot, na, nb), (&x, &y)| {
-                (dot + x * y, na + x * x, nb + y * y)
-            });
+    let (dot, norm_a, norm_b) = a
+        .iter()
+        .zip(b.iter())
+        .fold((0.0f32, 0.0f32, 0.0f32), |(dot, na, nb), (&x, &y)| {
+            (dot + x * y, na + x * x, nb + y * y)
+        });
 
     if norm_a <= 0.0 || norm_b <= 0.0 {
         return 0.0;
@@ -297,7 +297,8 @@ impl PrismIndex {
 
     /// Resets the session memory (call when starting a new session)
     pub fn reset_session(&mut self) {
-        self.session = SessionMemory::new(self.config.hot_cache_size, self.config.query_history_len);
+        self.session =
+            SessionMemory::new(self.config.hot_cache_size, self.config.query_history_len);
     }
 
     /// Returns session statistics
@@ -394,8 +395,8 @@ impl VectorIndex for PrismIndex {
             }
         }
 
-        // Phase 2: Use session-aware entry points if available
-        let use_related = self
+        // Phase 2: Check for related queries (reserved for future warm-start)
+        let _use_related = self
             .session
             .find_related_query(query, self.config.related_threshold)
             .is_some();
@@ -419,7 +420,11 @@ impl VectorIndex for PrismIndex {
 /// Mutable session-aware search (use this for full session benefits)
 impl PrismIndex {
     /// Performs a session-aware search and updates session memory
-    pub fn search_with_session(&mut self, query: &Vector, limit: usize) -> Result<Vec<ScoredPoint>> {
+    pub fn search_with_session(
+        &mut self,
+        query: &Vector,
+        limit: usize,
+    ) -> Result<Vec<ScoredPoint>> {
         ensure!(limit > 0, "limit must be greater than zero");
         ensure!(!self.base_index.is_empty(), PrismError::EmptyIndex);
 
@@ -526,14 +531,12 @@ mod tests {
     #[test]
     fn adaptive_ef_adjusts() {
         let mut index = PrismIndex::with_defaults(DistanceMetric::Euclidean);
-        let data: Vec<(usize, Vector)> = (0..100)
-            .map(|i| (i, vec![i as f32, 0.0]))
-            .collect();
+        let data: Vec<(usize, Vector)> = (0..100).map(|i| (i, vec![i as f32, 0.0])).collect();
         index.build(data).unwrap();
 
         // First query: base ef
         let query = vec![50.0, 0.0];
-        let ef1 = index.compute_ef(&query);
+        let _ef1 = index.compute_ef(&query);
 
         // After some queries, session state affects ef
         for i in 0..10 {
