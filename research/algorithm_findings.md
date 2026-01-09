@@ -12,6 +12,8 @@ A summary of findings from the novel algorithms implemented and tested in `index
 | **Hybrid Index** | `index-hybrid` | Novel | Sparse-Dense Fusion (Gap 2A, 2B) |
 | **SEER** (Similarity Estimation via Efficient Routing) | `index-seer` | Novel | Learned Index Structures (Gap 3A) |
 | **SWIFT** (Sparse-Weighted Index with Fast Traversal) | `index-swift` | Novel | Fast candidate generation (fixes SEER O(n)) |
+| **PRISM** (Progressive Refinement Index with Session Memory) | `index-prism` | Novel | Context-aware, adaptive search (Gap 7) |
+| **NEXUS** (Neural EXploration with Unified Spectral Routing) | `index-nexus` | Novel | Spectral manifold learning (Gap 3A) |
 | **HNSW** | `index-hnsw` | Baseline | Graph-based state-of-the-art |
 | **IVF** | `index-ivf` | Baseline | Clustering-based indexing |
 | **PQ** | `index-pq` | Baseline | Compression via quantization |
