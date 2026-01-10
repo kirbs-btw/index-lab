@@ -191,6 +191,32 @@ Uses **learned random projections** to predict locality relationships between ve
 
 ---
 
+## Benchmark Results (Verified 2026-01-10)
+
+> **Scenario**: `recall-baseline` – 10,000 points, 64 dimensions, 256 queries, k=20, Euclidean
+
+| Index | QPS | Avg Recall@20 | Build Time | Status |
+|-------|-----|---------------|------------|--------|
+| **Linear** | 1,230 | 100.0% | 634µs | ✅ Baseline |
+| **HNSW** | 33,299 | 1.0% | 220ms | ⚠️ Low recall (needs tuning) |
+| **IVF** | 13,710 | 40.4% | 1.71s | ⚠️ Low recall (needs more probes) |
+| **PQ** | 748 | 33.7% | 16.16s | ⚠️ Low recall (compression tradeoff) |
+| **LIM** | 1,158 | 98.7% | 3.33s | ✅ High recall, near-linear QPS |
+| **Hybrid** | 1,256 | 100.0% | 557µs | ✅ Perfect recall (falls back to linear) |
+| **SEER** | 110 | 96.5% | 2.4ms | 🔴 11× slower than linear |
+| **SWIFT** | 15,884 | 6.0% | 73ms | 🔴 Very low recall |
+| **PRISM** | 32,389 | 0.8% | 222ms | 🔴 Nearly zero recall |
+| **NEXUS** | 2,329 | 14.6% | 8.39s | 🔴 Low recall, long build |
+
+### Key Observations
+
+1. **LIM** and **Hybrid** are the only novel algorithms with high recall (>95%)
+2. **HNSW**, **IVF** need parameter tuning for this dataset
+3. **SEER** has good recall but O(n) performance issue remains
+4. **SWIFT**, **PRISM**, **NEXUS** have serious recall issues to investigate
+
+---
+
 ## Performance Comparison Summary
 
 | Metric | Linear | LIM | Hybrid | SEER | IVF | PQ | HNSW |
