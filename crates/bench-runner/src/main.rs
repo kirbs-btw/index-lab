@@ -17,6 +17,7 @@ use index_hybrid::HybridIndex;
 use index_ivf::IvfIndex;
 use index_lim::LimIndex;
 use index_linear::LinearIndex;
+use index_fusion::FusionIndex;
 use index_nexus::NexusIndex;
 use index_pq::PqIndex;
 use index_prism::PrismIndex;
@@ -38,6 +39,7 @@ enum IndexWrapper {
     Swift(SwiftIndex),
     Prism(PrismIndex),
     Nexus(NexusIndex),
+    Fusion(FusionIndex),
 }
 
 impl VectorIndex for IndexWrapper {
@@ -53,6 +55,7 @@ impl VectorIndex for IndexWrapper {
             Self::Swift(idx) => idx.metric(),
             Self::Prism(idx) => idx.metric(),
             Self::Nexus(idx) => idx.metric(),
+            Self::Fusion(idx) => idx.metric(),
         }
     }
 
@@ -68,6 +71,7 @@ impl VectorIndex for IndexWrapper {
             Self::Swift(idx) => idx.len(),
             Self::Prism(idx) => idx.len(),
             Self::Nexus(idx) => idx.len(),
+            Self::Fusion(idx) => idx.len(),
         }
     }
 
@@ -83,6 +87,7 @@ impl VectorIndex for IndexWrapper {
             Self::Swift(idx) => idx.insert(id, vector),
             Self::Prism(idx) => idx.insert(id, vector),
             Self::Nexus(idx) => idx.insert(id, vector),
+            Self::Fusion(idx) => idx.insert(id, vector),
         }
     }
 
@@ -98,6 +103,7 @@ impl VectorIndex for IndexWrapper {
             Self::Swift(idx) => idx.search(query, limit),
             Self::Prism(idx) => idx.search(query, limit),
             Self::Nexus(idx) => idx.search(query, limit),
+            Self::Fusion(idx) => idx.search(query, limit),
         }
     }
 }
@@ -114,6 +120,7 @@ enum IndexType {
     Swift,
     Prism,
     Nexus,
+    Fusion,
 }
 
 #[derive(Debug, Parser)]
@@ -810,6 +817,51 @@ fn main() -> Result<()> {
                 &cli,
             )?;
         }
+        IndexType::Fusion => {
+            run_benchmark(
+                "FUSION",
+                |load_path| {
+                    println!("Loading FUSION index from {}...", load_path.display());
+                    let load_start = Instant::now();
+                    let loaded = FusionIndex::load(load_path).with_context(|| {
+                        format!("failed to load index from {}", load_path.display())
+                    })?;
+                    let load_time = load_start.elapsed();
+                    println!(
+                        "Loaded index in {:.2?} ({} vectors, metric: {:?})",
+                        load_time,
+                        loaded.len(),
+                        loaded.metric()
+                    );
+                    Ok((IndexWrapper::Fusion(loaded), load_time))
+                },
+                || {
+                    let mut index = FusionIndex::with_defaults(runtime.metric);
+                    let build_start = Instant::now();
+                    index.build(dataset.clone())?;
+                    let build_time = build_start.elapsed();
+                    Ok((IndexWrapper::Fusion(index), build_time))
+                },
+                |idx, path| {
+                    if let IndexWrapper::Fusion(inner) = idx {
+                        inner.save(path).with_context(|| {
+                            format!("failed to save index to {}", path.display())
+                        })?;
+                        println!(
+                            "Saved FUSION index to {} ({} vectors)",
+                            path.display(),
+                            inner.len()
+                        );
+                    }
+                    Ok(())
+                },
+                false, // Not exhaustive (uses LSH bucketing + mini-graphs)
+                &dataset,
+                &queries,
+                &runtime,
+                &cli,
+            )?;
+        }
     }
 
     // Note: report_json is handled in print_results if needed
@@ -857,6 +909,7 @@ fn print_results(
         IndexWrapper::Swift(_) => "swift",
         IndexWrapper::Prism(_) => "prism",
         IndexWrapper::Nexus(_) => "nexus",
+        IndexWrapper::Fusion(_) => "fusion",
     };
 
     let (avg_recall, min_recall, max_recall) = recall_metrics;

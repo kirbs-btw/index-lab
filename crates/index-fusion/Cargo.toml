@@ -1,0 +1,17 @@
+[package]
+name = "index-fusion"
+version = "0.1.0"
+edition = "2021"
+description = "FUSION: Fast Unified Search with Intelligent Orchestrated Navigation - A novel vector index combining LSH bucketing with hierarchical mini-graph navigation"
+license = "MIT"
+
+[dependencies]
+index-core = { path = "../index-core" }
+anyhow = "1.0"
+rand = "0.8"
+thiserror = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[dev-dependencies]
+approx = "0.5"
