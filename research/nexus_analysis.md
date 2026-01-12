@@ -166,6 +166,5 @@ NEXUS demonstrates the value of exploiting manifold structure for vector search.
 
 ---
 
-*Analysis created: 2026-01-07*  
 *Status: ✅ Implemented and tested*  
 *Implementation: [`index-nexus`](file:///Users/bastianlipka/Desktop/index-lab/crates/index-nexus/)*
