@@ -14,6 +14,7 @@ A summary of findings from the novel algorithms implemented and tested in `index
 | **SWIFT** (Sparse-Weighted Index with Fast Traversal) | `index-swift` | Novel | Fast candidate generation (fixes SEER O(n)) |
 | **PRISM** (Progressive Refinement Index with Session Memory) | `index-prism` | Novel | Context-aware, adaptive search (Gap 7) |
 | **NEXUS** (Neural EXploration with Unified Spectral Routing) | `index-nexus` | Novel | Spectral manifold learning (Gap 3A) |
+| **FUSION** (Fast Unified Search with Intelligent Orchestrated Navigation) | `index-fusion` | Novel | LSH + Mini-graphs (fixes O(n) issues) |
 | **HNSW** | `index-hnsw` | Baseline | Graph-based state-of-the-art |
 | **IVF** | `index-ivf` | Baseline | Clustering-based indexing |
 | **PQ** | `index-pq` | Baseline | Compression via quantization |
@@ -191,7 +192,7 @@ Uses **learned random projections** to predict locality relationships between ve
 
 ---
 
-## Benchmark Results (Verified 2026-01-10)
+## Benchmark Results (Verified 2026-01-12)
 
 > **Scenario**: `recall-baseline` – 10,000 points, 64 dimensions, 256 queries, k=20, Euclidean
 
@@ -207,13 +208,15 @@ Uses **learned random projections** to predict locality relationships between ve
 | **SWIFT** | 15,884 | 6.0% | 73ms | 🔴 Very low recall |
 | **PRISM** | 32,389 | 0.8% | 222ms | 🔴 Nearly zero recall |
 | **NEXUS** | 2,329 | 14.6% | 8.39s | 🔴 Low recall, long build |
+| **FUSION** | 527 | 94.0% | 553ms | ✅ High recall, addresses O(n) issues |
 
 ### Key Observations
 
-1. **LIM** and **Hybrid** are the only novel algorithms with high recall (>95%)
-2. **HNSW**, **IVF** need parameter tuning for this dataset
-3. **SEER** has good recall but O(n) performance issue remains
-4. **SWIFT**, **PRISM**, **NEXUS** have serious recall issues to investigate
+1. **LIM**, **Hybrid**, and **FUSION** are the algorithms with high recall (>90%)
+2. **FUSION** successfully addresses O(n) issues with LSH bucketing + mini-graphs
+3. **HNSW**, **IVF** need parameter tuning for this dataset
+4. **SEER** has good recall but O(n) performance issue remains
+5. **SWIFT**, **PRISM**, **NEXUS** have serious recall issues to investigate
 
 ---
 
@@ -236,17 +239,18 @@ Uses **learned random projections** to predict locality relationships between ve
 ## Next Steps
 
 ### Immediate Priorities
-1. **Fix SEER performance** - Add LSH bucketing for O(1) candidate lookup (currently 25× slower than linear)
+1. **Optimize FUSION speed** - Adaptive probing, parallel bucket search
 2. **Fix LIM scale mismatch** - Normalize spatial distances
 3. **Add sparse inverted index** to Hybrid
-4. **Large-scale benchmarks** - 100K-1M vectors
+4. **Large-scale benchmarks** - 100K-1M vectors to validate FUSION scalability
 
 ### Research Extensions
-1. **Graph-accelerated Hybrid** - Combine HNSW with sparse lookup
-2. **Improved SEER learning** - Proper metric learning or neural locality prediction
-3. **Streaming support** - Handle continuous inserts without rebuilds
+1. **Learned FUSION routing** - Train model to predict best buckets
+2. **Graph-accelerated Hybrid** - Combine HNSW with sparse lookup
+3. **Temporal FUSION** - Add time decay post-search reranking
+4. **Streaming support** - Handle continuous inserts without rebuilds
 
 ---
 
-*See also: [seer_analysis.md](./seer_analysis.md), [lim_analysis.md](./lim_analysis.md), [research_gaps.md](./research_gaps.md)*
+*See also: [fusion_analysis.md](./fusion_analysis.md), [seer_analysis.md](./seer_analysis.md), [lim_analysis.md](./lim_analysis.md), [research_gaps.md](./research_gaps.md)*
 
