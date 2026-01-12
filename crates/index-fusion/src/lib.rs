@@ -89,11 +89,11 @@ pub struct FusionConfig {
 impl Default for FusionConfig {
     fn default() -> Self {
         Self {
-            n_hyperplanes: 3,       // 8 buckets (~1250 vectors per bucket for 10K dataset)
-            n_probes: 8,            // Probe all buckets for maximum recall
-            mini_graph_m: 20,       // Good edge count for navigation
-            mini_graph_ef: 100,     // Moderate beam width for speed
-            min_bucket_for_graph: 8,  // Build graphs for reasonable bucket sizes
+            n_hyperplanes: 3,        // 8 buckets (~1250 vectors per bucket for 10K dataset)
+            n_probes: 8,             // Probe all buckets for maximum recall
+            mini_graph_m: 20,        // Good edge count for navigation
+            mini_graph_ef: 100,      // Moderate beam width for speed
+            min_bucket_for_graph: 8, // Build graphs for reasonable bucket sizes
             seed: 42,
         }
     }
@@ -316,9 +316,12 @@ impl MiniGraph {
                 self.edges[neighbor_lid].push(local_id);
             } else {
                 // Prune: replace worst neighbor if new connection is better
-                let new_dist =
-                    distance(metric, &vectors[self.vector_ids[neighbor_lid]].vector, vector)
-                        .unwrap_or(f32::MAX);
+                let new_dist = distance(
+                    metric,
+                    &vectors[self.vector_ids[neighbor_lid]].vector,
+                    vector,
+                )
+                .unwrap_or(f32::MAX);
 
                 let mut worst_idx = None;
                 let mut worst_dist = new_dist;
@@ -374,7 +377,7 @@ impl MiniGraph {
         let entry = self.entry_point.unwrap_or(0);
         let mut visited = HashSet::new();
         let mut candidates = BinaryHeap::new(); // Min-heap (HeapEntry has inverted ord)
-        
+
         // For results, we want max-heap behavior (keep smallest k by removing largest)
         // We'll just collect all visited and sort at the end for simplicity
         let mut all_visited_with_dist: Vec<(usize, f32)> = Vec::new();
@@ -401,8 +404,12 @@ impl MiniGraph {
             // Explore neighbors
             for &neighbor_lid in &self.edges[current.local_id] {
                 if visited.insert(neighbor_lid) {
-                    let dist = distance(metric, query, &vectors[self.vector_ids[neighbor_lid]].vector)
-                        .unwrap_or(f32::MAX);
+                    let dist = distance(
+                        metric,
+                        query,
+                        &vectors[self.vector_ids[neighbor_lid]].vector,
+                    )
+                    .unwrap_or(f32::MAX);
                     candidates.push(HeapEntry {
                         local_id: neighbor_lid,
                         distance: dist,
@@ -616,7 +623,8 @@ impl VectorIndex for FusionIndex {
             .filter(|(global_idx, _)| seen.insert(*global_idx))
             .collect();
 
-        unique_candidates.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+        unique_candidates
+            .sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
         unique_candidates.truncate(limit);
 
         // Convert to ScoredPoint with original IDs
@@ -668,9 +676,9 @@ mod tests {
         let mut index = FusionIndex::new(
             DistanceMetric::Euclidean,
             FusionConfig {
-                n_hyperplanes: 3,  // Only 8 buckets
-                n_probes: 8,       // Probe all buckets
-                min_bucket_for_graph: 1,  // Allow graph even for tiny buckets
+                n_hyperplanes: 3,        // Only 8 buckets
+                n_probes: 8,             // Probe all buckets
+                min_bucket_for_graph: 1, // Allow graph even for tiny buckets
                 ..Default::default()
             },
         );
@@ -687,15 +695,18 @@ mod tests {
 
         // Should find at least some results
         assert!(!results.is_empty(), "Should find some results");
-        
+
         // First result should be id=0 (exact match with distance 0)
         assert_eq!(results[0].id, 0, "First result should be the exact match");
-        assert!(results[0].distance < 0.001, "First result should have near-zero distance");
-        
+        assert!(
+            results[0].distance < 0.001,
+            "First result should have near-zero distance"
+        );
+
         // Results should be sorted by distance
         for i in 1..results.len() {
             assert!(
-                results[i].distance >= results[i-1].distance,
+                results[i].distance >= results[i - 1].distance,
                 "Results should be sorted by distance"
             );
         }

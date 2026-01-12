@@ -12,12 +12,12 @@ use clap::{Parser, ValueEnum};
 use index_core::{
     generate_query_set, generate_uniform_dataset, DistanceMetric, ScoredPoint, Vector, VectorIndex,
 };
+use index_fusion::FusionIndex;
 use index_hnsw::HnswIndex;
 use index_hybrid::HybridIndex;
 use index_ivf::IvfIndex;
 use index_lim::LimIndex;
 use index_linear::LinearIndex;
-use index_fusion::FusionIndex;
 use index_nexus::NexusIndex;
 use index_pq::PqIndex;
 use index_prism::PrismIndex;
