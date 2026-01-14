@@ -155,6 +155,8 @@ pub struct FusionConfig {
     pub mini_graph_ef: usize,      // 100 beam width
     pub min_bucket_for_graph: usize, // 8 min for graph
     pub seed: u64,                 // 42 for reproducibility
+    pub adaptive_probing: bool,    // true (stop early when candidates strong)
+    pub candidate_threshold_factor: f32, // 3.0 (need 3× k strong candidates)
 }
 ```
 
@@ -184,7 +186,7 @@ pub struct FusionConfig {
 ## Future Improvements
 
 ### Priority 1: Speed Optimization
-1. **Adaptive probing**: Probe fewer buckets when candidates look good
+1. ~~**Adaptive probing**~~: ✅ Implemented — stops probing when enough strong candidates found
 2. **Parallel bucket search**: Search multiple buckets concurrently
 3. **Better entry points**: Use random sample or distance-based selection
 

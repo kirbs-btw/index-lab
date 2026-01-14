@@ -84,6 +84,18 @@ pub struct FusionConfig {
     /// Random seed for reproducible hyperplane generation.
     /// Default: 42
     pub seed: u64,
+
+    /// Enable adaptive probing - stop probing when candidates look strong.
+    /// When enabled, search will terminate early if enough high-quality
+    /// candidates are found before all probe buckets are exhausted.
+    /// Default: true
+    pub adaptive_probing: bool,
+
+    /// Stop probing early if we have at least `limit * candidate_threshold_factor`
+    /// candidates with distances at or below the k-th best distance.
+    /// Higher values = more conservative (probe more buckets).
+    /// Default: 3.0 (stop when we have 3× k strong candidates)
+    pub candidate_threshold_factor: f32,
 }
 
 impl Default for FusionConfig {
@@ -95,6 +107,8 @@ impl Default for FusionConfig {
             mini_graph_ef: 100,      // Moderate beam width for speed
             min_bucket_for_graph: 8, // Build graphs for reasonable bucket sizes
             seed: 42,
+            adaptive_probing: true,           // Enable early termination
+            candidate_threshold_factor: 3.0,  // Stop when we have 3× k strong candidates
         }
     }
 }
@@ -592,8 +606,10 @@ impl VectorIndex for FusionIndex {
         // Stage 2: Get probe buckets (primary + Hamming-1 neighbors)
         let probe_buckets = hasher.get_probe_buckets(primary, self.config.n_probes);
 
-        // Stage 3: Search each probed bucket
+        // Stage 3: Search each probed bucket (with adaptive early termination)
         let mut all_candidates = Vec::new();
+        let adaptive_threshold = (limit as f32 * self.config.candidate_threshold_factor) as usize;
+
         for bucket_id in probe_buckets {
             let bucket = &self.buckets[bucket_id];
             if bucket.is_empty() {
@@ -614,6 +630,23 @@ impl VectorIndex for FusionIndex {
             };
 
             all_candidates.extend(candidates);
+
+            // Adaptive probing: stop early if we have enough strong candidates
+            if self.config.adaptive_probing && all_candidates.len() >= adaptive_threshold {
+                // Sort distances to find the k-th best
+                let mut distances: Vec<f32> = all_candidates.iter().map(|(_, d)| *d).collect();
+                distances.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+                // Count how many candidates are at or below the k-th distance
+                let kth_idx = limit.min(distances.len()) - 1;
+                let kth_dist = distances[kth_idx];
+                let strong_count = distances.iter().filter(|d| **d <= kth_dist).count();
+
+                // If we have enough strong candidates, stop probing
+                if strong_count >= adaptive_threshold {
+                    break;
+                }
+            }
         }
 
         // Stage 4: Deduplicate, sort, and take top-k
@@ -837,5 +870,50 @@ mod tests {
 
         // Should prefer vectors aligned with the query
         assert_eq!(results[0].id, 0); // Most aligned with x-axis
+    }
+
+    #[test]
+    fn test_adaptive_probing_maintains_recall() {
+        // Create two indexes: one with adaptive probing, one without
+        let config_adaptive = FusionConfig {
+            n_hyperplanes: 4, // 16 buckets
+            n_probes: 16,     // Could probe all
+            adaptive_probing: true,
+            candidate_threshold_factor: 3.0,
+            ..Default::default()
+        };
+        let config_no_adaptive = FusionConfig {
+            adaptive_probing: false,
+            ..config_adaptive.clone()
+        };
+
+        let mut index_adaptive = FusionIndex::new(DistanceMetric::Euclidean, config_adaptive);
+        let mut index_full = FusionIndex::new(DistanceMetric::Euclidean, config_no_adaptive);
+
+        // Insert identical data into both
+        let mut rng = StdRng::seed_from_u64(999);
+        for i in 0..100 {
+            let vec: Vec<f32> = (0..16).map(|_| rng.gen::<f32>()).collect();
+            index_adaptive.insert(i, vec.clone()).unwrap();
+            index_full.insert(i, vec).unwrap();
+        }
+
+        // Query both and compare recall
+        let query: Vec<f32> = (0..16).map(|_| rng.gen::<f32>()).collect();
+        let results_adaptive = index_adaptive.search(&query, 10).unwrap();
+        let results_full = index_full.search(&query, 10).unwrap();
+
+        let set_adaptive: HashSet<usize> = results_adaptive.iter().map(|r| r.id).collect();
+        let set_full: HashSet<usize> = results_full.iter().map(|r| r.id).collect();
+
+        // Adaptive should find at least 80% of what full probing finds
+        let overlap = set_adaptive.intersection(&set_full).count();
+        let recall = overlap as f32 / 10.0;
+
+        assert!(
+            recall >= 0.8,
+            "Adaptive probing should maintain at least 80% recall vs full probing, got {:.0}%",
+            recall * 100.0
+        );
     }
 }
