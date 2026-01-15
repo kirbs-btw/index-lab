@@ -107,8 +107,8 @@ impl Default for FusionConfig {
             mini_graph_ef: 100,      // Moderate beam width for speed
             min_bucket_for_graph: 8, // Build graphs for reasonable bucket sizes
             seed: 42,
-            adaptive_probing: true,           // Enable early termination
-            candidate_threshold_factor: 3.0,  // Stop when we have 3× k strong candidates
+            adaptive_probing: true,          // Enable early termination
+            candidate_threshold_factor: 3.0, // Stop when we have 3× k strong candidates
         }
     }
 }
