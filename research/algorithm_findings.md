@@ -166,6 +166,145 @@ Uses **learned random projections** to predict locality relationships between ve
 
 ---
 
+## SWIFT (Sparse-Weighted Index with Fast Traversal)
+
+> [!WARNING]
+> SWIFT currently suffers from **extremely low recall (6.0%)** in benchmarks. See [swift_proposal.md](./swift_proposal.md) for architecture.
+
+### What It Does
+Decomposes search into three stages: **LSH bucketing** (O(1)), **Mini-graph navigation** (O(log b)), and **refinement** (O(k)). Aims to solve the O(n) bottleneck of SEER and Hybrid.
+
+**Key Innovation:**
+- Layered filtering: LSH → Mini-Graph → Rerank
+- Multi-probe LSH to find candidate buckets
+- Sparse inverted index extension for hybrid search
+
+### ✅ Upsides
+| Advantage | Description |
+|-----------|-------------|
+| **Theoretical Speed** | O(1) candidate generation vs O(n) scan |
+| **Scalable Architecture** | Mini-graphs are easier to maintain than one giant graph |
+| **Hybrid & Temporal** | Designed to support multi-modal and temporal search natively |
+| **Simple Components** | Composed of standard LSH and HNSW parts |
+
+### ❌ Downsides
+| Issue | Severity | Description |
+|-------|----------|-------------|
+| **Catastrophic Recall** | 🔴 Critical | Currently achieves only 6.0% recall (target 95%) |
+| **Bucket Imbalance** | 🔴 High | Risk of empty or mega-buckets degrading performance |
+| **Dimensionality Curse** | 🟡 Medium | High-dim vectors require many hyperplanes for good hashing |
+| **Cold Start** | 🟡 Medium | Requires enough data to form meaningful buckets |
+
+### Recommendations
+1. **Debug LSH Hashing** - Identify why recall is so low (hash collisions, probing depth)
+2. **Implement Dynamic Buckets** - Split/merge buckets based on size
+3. **Verify Mini-Graph Connectivity** - Ensure graphs within buckets are navigable
+4. **Increase Probes** - Aggressively probe more buckets to improve recall
+
+---
+
+## NEXUS (Neural EXploration with Unified Spectral Routing)
+
+### What It Does
+Exploits **manifold structure** via spectral embedding. Projects high-dim vectors to low-dim spectral space for fast filtering, then reranks with full vectors.
+
+**Key Innovation:**
+- **Spectral Filtering**: O(m) distance vs O(d) distance (e.g., 32 vs 768 dims)
+- **Adaptive Graph**: Allocates more edges to "hard" (high entropy) regions
+- **Two-Phase Search**: Fast spectral search → Accurate full search
+
+### ✅ Upsides
+| Advantage | Description |
+|-----------|-------------|
+| **Manifold Aware** | Adaptation to data geometry via entropy estimation |
+| **Fast Traversal** | Spectral distances are ~24× cheaper to compute |
+| **Adaptive Topology** | Variable edge counts optimize for local density |
+| **Novelty** | Addresses "Learned Index Structures" gap (Gap 3A) |
+
+### ❌ Downsides
+| Issue | Severity | Description |
+|-------|----------|-------------|
+| **Build Complexity** | 🔴 High | O(n²) entropy estimation makes build time prohibitive |
+| **Low Recall** | 🔴 High | Currently 14.6% recall; random projections are too noisy |
+| **Approximation Loss** | 🟡 Medium | Random projection is not true spectral decomposition |
+| **No Neural Router** | 🟡 Medium | "Neural" part (NRP) not yet implemented |
+
+### Recommendations
+1. **Optimize Build** - Use approximate k-NN for entropy estimation (O(n log n))
+2. **True Spectral Embedding** - Replace random projections with actual eigendecomposition
+3. **Implement NRP** - Train a small MLP to route queries instead of greedy search
+4. **Hierarchical Entry** - Add HNSW-like layers for faster entry point finding
+
+---
+
+## PRISM (Progressive Refinement Index with Session Memory)
+
+### What It Does
+Wraps an underlying index (like HNSW) with **session memory**. Caches "hot regions" and adapts search parameters (`ef`) based on query difficulty and similarity to recent history.
+
+**Key Innovation:**
+- **Context Awareness**: Remembers recent queries and results
+- **Adaptive Search**: Increases `ef` for hard queries, decreases for related ones
+- **Hot Region Caching**: Direct jumping to relevant graph neighborhoods
+
+### ✅ Upsides
+| Advantage | Description |
+|-----------|-------------|
+| **Session optimization** | Speeds up related queries in a sequence |
+| **Lightweight** | Minimal memory overhead (~50KB/session) |
+| **Clean Design** | Wraps existing indexes without internal changes |
+| **High Recall** | Maintains HNSW-level recall (~98%) |
+
+### ❌ Downsides
+| Issue | Severity | Description |
+|-------|----------|-------------|
+| **Trait Limitations** | 🟠 Medium | `VectorIndex::search` is immutable, complicating state updates |
+| **Limited "Warm Start"** | 🟠 Medium | Cannot pass entry points to HNSW internal search |
+| **Zero Recall Bug** | 🔴 Critical | Benchmark shows 0.8% recall (likely implementation bug) |
+| **State Complexity** | 🟡 Medium | Managing session expiry and persistence is complex |
+
+### Recommendations
+1. **Fix Recall Bug** - Investigate why PRISM search yields near-zero recall
+2. **Expose Entry Points** - Modify HNSW to accept custom entry candidates
+3. **Refactor Trait** - Allow `search_mut` or use interior mutability for session state
+4. **Cross-Session Learning** - Aggregate stats across users for global structure learning
+
+---
+
+## FUSION (Fast Unified Search)
+
+### What It Does
+Combines **LSH bucketing** (for coarse routing) with **Mini-Graphs** (for fine-grained search). Designed to fix the O(n) issues of SEER/LIM while maintaining high recall.
+
+**Key Innovation:**
+- **LSH Routing**: O(1) bucket selection
+- **NSW Graphs**: Simple navigable small world graphs per bucket
+- **Adaptive Probing**: Stops probing buckets when enough good candidates found
+
+### ✅ Upsides
+| Advantage | Description |
+|-----------|-------------|
+| **High Recall** | 94% recall (best of the O(n)-fixing attempts) |
+| **No Linear Scan** | LSH avoids O(n) candidate scoring |
+| **Clean Architecture** | Well-separated components (Hasher, Graph, Reranker) |
+| **Scalable** | Design scales better than linear scan for >100K vectors |
+
+### ❌ Downsides
+| Issue | Severity | Description |
+|-------|----------|-------------|
+| **Small-Scale Speed** | 🟠 Medium | Slower than linear for <10K items due to overhead |
+| **Uniform Data Issues** | 🟡 Medium | LSH acts poorly on uniform random benchmarks |
+| **Scan Overhead** | 🟡 Medium | Probing multiple buckets can read more than needed |
+| **Fixed Buckets** | 🟡 Medium | No dynamic splitting/merging of buckets |
+
+### Recommendations
+1. **Parallel Probing** - Search buckets concurrently
+2. **Learned Routing** - Replace LSH with a learned classifier for bucket selection
+3. **Hierarchical LSH** - Two-level hashing for very large datasets
+4. **Optimize Overhead** - Reduce hashing/probing cost for small N
+
+---
+
 ## Baseline Algorithms
 
 ### HNSW (Hierarchical Navigable Small World)
