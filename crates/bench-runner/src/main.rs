@@ -23,6 +23,7 @@ use index_pq::PqIndex;
 use index_prism::PrismIndex;
 use index_seer::SeerIndex;
 use index_swift::SwiftIndex;
+use index_vortex::VortexIndex;
 use scenarios::{ScenarioDetails, ScenarioKind};
 use serde::Serialize;
 use std::collections::HashSet;
@@ -40,6 +41,7 @@ enum IndexWrapper {
     Prism(PrismIndex),
     Nexus(NexusIndex),
     Fusion(FusionIndex),
+    Vortex(VortexIndex),
 }
 
 impl VectorIndex for IndexWrapper {
@@ -56,6 +58,7 @@ impl VectorIndex for IndexWrapper {
             Self::Prism(idx) => idx.metric(),
             Self::Nexus(idx) => idx.metric(),
             Self::Fusion(idx) => idx.metric(),
+            Self::Vortex(idx) => idx.metric(),
         }
     }
 
@@ -72,6 +75,7 @@ impl VectorIndex for IndexWrapper {
             Self::Prism(idx) => idx.len(),
             Self::Nexus(idx) => idx.len(),
             Self::Fusion(idx) => idx.len(),
+            Self::Vortex(idx) => idx.len(),
         }
     }
 
@@ -88,6 +92,7 @@ impl VectorIndex for IndexWrapper {
             Self::Prism(idx) => idx.insert(id, vector),
             Self::Nexus(idx) => idx.insert(id, vector),
             Self::Fusion(idx) => idx.insert(id, vector),
+            Self::Vortex(idx) => idx.insert(id, vector),
         }
     }
 
@@ -104,6 +109,7 @@ impl VectorIndex for IndexWrapper {
             Self::Prism(idx) => idx.search(query, limit),
             Self::Nexus(idx) => idx.search(query, limit),
             Self::Fusion(idx) => idx.search(query, limit),
+            Self::Vortex(idx) => idx.search(query, limit),
         }
     }
 }
@@ -121,6 +127,7 @@ enum IndexType {
     Prism,
     Nexus,
     Fusion,
+    Vortex,
 }
 
 #[derive(Debug, Parser)]
@@ -862,6 +869,51 @@ fn main() -> Result<()> {
                 &cli,
             )?;
         }
+        IndexType::Vortex => {
+            run_benchmark(
+                "VORTEX",
+                |load_path| {
+                    println!("Loading VORTEX index from {}...", load_path.display());
+                    let load_start = Instant::now();
+                    let loaded = VortexIndex::load(load_path).with_context(|| {
+                        format!("failed to load index from {}", load_path.display())
+                    })?;
+                    let load_time = load_start.elapsed();
+                    println!(
+                        "Loaded index in {:.2?} ({} vectors, metric: {:?})",
+                        load_time,
+                        loaded.len(),
+                        loaded.metric()
+                    );
+                    Ok((IndexWrapper::Vortex(loaded), load_time))
+                },
+                || {
+                    let mut index = VortexIndex::with_defaults(runtime.metric);
+                    let build_start = Instant::now();
+                    index.build(dataset.iter().cloned())?;
+                    let build_time = build_start.elapsed();
+                    Ok((IndexWrapper::Vortex(index), build_time))
+                },
+                |idx, path| {
+                    if let IndexWrapper::Vortex(inner) = idx {
+                        inner.save(path).with_context(|| {
+                            format!("failed to save index to {}", path.display())
+                        })?;
+                        println!(
+                            "Saved VORTEX index to {} ({} vectors)",
+                            path.display(),
+                            inner.len()
+                        );
+                    }
+                    Ok(())
+                },
+                false,
+                &dataset,
+                &queries,
+                &runtime,
+                &cli,
+            )?;
+        }
     }
 
     // Note: report_json is handled in print_results if needed
@@ -910,6 +962,7 @@ fn print_results(
         IndexWrapper::Prism(_) => "prism",
         IndexWrapper::Nexus(_) => "nexus",
         IndexWrapper::Fusion(_) => "fusion",
+        IndexWrapper::Vortex(_) => "vortex",
     };
 
     let (avg_recall, min_recall, max_recall) = recall_metrics;
