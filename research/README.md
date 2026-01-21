@@ -14,9 +14,10 @@
 | [**lim_analysis.md**](./lim_analysis.md) | LIM deep dive |
 | [**seer_analysis.md**](./seer_analysis.md) | SEER deep dive |
 | [**hybrid_analysis.md**](./hybrid_analysis.md) | Hybrid Index deep dive |
-| [**swift_proposal.md**](./swift_proposal.md) | 🚀 SWIFT algorithm proposal (LSH + mini-graphs) |
+| [**swift_analysis.md**](./swift_analysis.md) | ✅ SWIFT algorithm analysis (LSH + mini-graphs) |
 | [**nexus_analysis.md**](./nexus_analysis.md) | ✅ NEXUS algorithm analysis (spectral + adaptive) |
 | [**prism_analysis.md**](./prism_analysis.md) | ✅ PRISM algorithm analysis (session-aware) |
+| [**vortex_analysis.md**](./vortex_analysis.md) | ✅ VORTEX algorithm analysis (cluster routing) |
 
 ---
 
@@ -41,9 +42,10 @@
 | **LIM** | Temporal-aware vector search | ✅ Works | ⚠️ O(n) insertion |
 | **Hybrid** | Dense + sparse fusion | ✅ Works | ⚠️ Linear scan |
 | **SEER** | Learned locality prediction | ✅ Works | 🔴 25× slower than baseline |
-| **SWIFT** | LSH bucketing + mini-graphs | ✅ Works | ⚠️ Needs recall tuning (20× faster than linear!) |
+| **SWIFT** | LSH bucketing + mini-graphs | ✅ Works | ⚠️ LSH data distribution sensitivity |
 | **PRISM** | Session-aware adaptive search | ✅ Works | Session state requires mutable access |
 | **NEXUS** | Spectral embedding + adaptive graph | ✅ Works | O(n²) graph build time |
+| **VORTEX** | Cluster-driven graph routing | ✅ Works | O(N*C) training overhead |
 
 ### Research Gaps Addressed
 
@@ -55,6 +57,7 @@
 | 3A | Fast candidate generation | **SWIFT** | ✅ Implemented |
 | 3A | Spectral manifold learning | **NEXUS** | ✅ Implemented |
 | 7 | Context-aware, adaptive search | **PRISM** | ✅ Implemented |
+| 2B | Graph-based cluster routing | **VORTEX** | ✅ Implemented |
 
 ### Gaps Not Yet Explored
 - Gap 4: Privacy-preserving search

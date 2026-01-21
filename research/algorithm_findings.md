@@ -15,6 +15,7 @@ A summary of findings from the novel algorithms implemented and tested in `index
 | **PRISM** (Progressive Refinement Index with Session Memory) | `index-prism` | Novel | Context-aware, adaptive search (Gap 7) |
 | **NEXUS** (Neural EXploration with Unified Spectral Routing) | `index-nexus` | Novel | Spectral manifold learning (Gap 3A) |
 | **FUSION** (Fast Unified Search with Intelligent Orchestrated Navigation) | `index-fusion` | Novel | LSH + Mini-graphs (fixes O(n) issues) |
+| **VORTEX** (Voronoi-Optimized Routing for Traversal) | `index-vortex` | Novel | Cluster-based graph routing (Gap 2B) |
 | **HNSW** | `index-hnsw` | Baseline | Graph-based state-of-the-art |
 | **IVF** | `index-ivf` | Baseline | Clustering-based indexing |
 | **PQ** | `index-pq` | Baseline | Compression via quantization |
@@ -169,7 +170,7 @@ Uses **learned random projections** to predict locality relationships between ve
 ## SWIFT (Sparse-Weighted Index with Fast Traversal)
 
 > [!WARNING]
-> SWIFT currently suffers from **extremely low recall (6.0%)** in benchmarks. See [swift_proposal.md](./swift_proposal.md) for architecture.
+> SWIFT currently suffers from **extremely low recall (6.0%)** in benchmarks. See [swift_analysis.md](./swift_analysis.md) for architecture.
 
 ### What It Does
 Decomposes search into three stages: **LSH bucketing** (O(1)), **Mini-graph navigation** (O(log b)), and **refinement** (O(k)). Aims to solve the O(n) bottleneck of SEER and Hybrid.
@@ -302,6 +303,36 @@ Combines **LSH bucketing** (for coarse routing) with **Mini-Graphs** (for fine-g
 2. **Learned Routing** - Replace LSH with a learned classifier for bucket selection
 3. **Hierarchical LSH** - Two-level hashing for very large datasets
 4. **Optimize Overhead** - Reduce hashing/probing cost for small N
+
+---
+
+## VORTEX (Voronoi-Optimized Routing)
+
+### What It Does
+Solves the "Recall vs Speed" dilemma by replacing unreliable LSH or linear cluster scanning with **Graph-based Cluster Routing**.
+Builds a small HNSW graph on K-Means centroids for O(log C) routing.
+
+**Key Innovation:**
+- **Centroid Graph**: Navigable graph on clusters
+- **Density-Adaptive**: K-Means adapts to data distribution
+- **Two-Stage Search**: Graph Route → Bucket Scan
+
+### ✅ Upsides
+| Advantage | Description |
+|-----------|-------------|
+| **Scalability** | O(log C) routing is extremely fast |
+| **Recall** | Better than SWIFT due to density-aware clusters |
+| **Build Time** | Faster than HNSW (only builds graph on centroids) |
+
+### ❌ Downsides
+| Issue | Severity | Description |
+|-------|----------|-------------|
+| **Training Overhead** | 🟠 Medium | K-Means training can be slow for large N |
+| **Memory** | 🟡 Medium | Duplicate storage (buckets + vectors) in current impl |
+
+### Recommendations
+1. **Subsample Training** - Speed up build
+2. **Parallelize** - Assign vectors to buckets in parallel
 
 ---
 
