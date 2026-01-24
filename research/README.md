@@ -4,7 +4,7 @@
 
 ---
 
-## 📁 Files (9 total)
+## 📁 Files (10 total)
 
 | File | Purpose |
 |------|---------|
@@ -18,6 +18,7 @@
 | [**nexus_analysis.md**](./nexus_analysis.md) | ✅ NEXUS algorithm analysis (spectral + adaptive) |
 | [**prism_analysis.md**](./prism_analysis.md) | ✅ PRISM algorithm analysis (session-aware) |
 | [**vortex_analysis.md**](./vortex_analysis.md) | ✅ VORTEX algorithm analysis (cluster routing) |
+| [**atlas_analysis.md**](./atlas_analysis.md) | ✅ ATLAS algorithm analysis (learned + hybrid) |
 
 ---
 
@@ -46,6 +47,7 @@
 | **PRISM** | Session-aware adaptive search | ✅ Works | Session state requires mutable access |
 | **NEXUS** | Spectral embedding + adaptive graph | ✅ Works | O(n²) graph build time |
 | **VORTEX** | Cluster-driven graph routing | ✅ Works | O(N*C) training overhead |
+| **ATLAS** | Learned routing + hybrid buckets | ✅ Implemented | ⚠️ Testing pending (Rust 1.80+) |
 
 ### Research Gaps Addressed
 
@@ -58,6 +60,7 @@
 | 3A | Spectral manifold learning | **NEXUS** | ✅ Implemented |
 | 7 | Context-aware, adaptive search | **PRISM** | ✅ Implemented |
 | 2B | Graph-based cluster routing | **VORTEX** | ✅ Implemented |
+| 1A, 2C, 3A, 7A | Learned routing + hybrid buckets | **ATLAS** | ✅ Implemented |
 
 ### Gaps Not Yet Explored
 - Gap 4: Privacy-preserving search

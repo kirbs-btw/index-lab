@@ -16,6 +16,7 @@ A summary of findings from the novel algorithms implemented and tested in `index
 | **NEXUS** (Neural EXploration with Unified Spectral Routing) | `index-nexus` | Novel | Spectral manifold learning (Gap 3A) |
 | **FUSION** (Fast Unified Search with Intelligent Orchestrated Navigation) | `index-fusion` | Novel | LSH + Mini-graphs (fixes O(n) issues) |
 | **VORTEX** (Voronoi-Optimized Routing for Traversal) | `index-vortex` | Novel | Cluster-based graph routing (Gap 2B) |
+| **ATLAS** (Adaptive Tiered Layered Aggregation System) | `index-atlas` | Novel | Learned routing + hybrid buckets (Gaps 1A, 2C, 3A, 7A) |
 | **HNSW** | `index-hnsw` | Baseline | Graph-based state-of-the-art |
 | **IVF** | `index-ivf` | Baseline | Clustering-based indexing |
 | **PQ** | `index-pq` | Baseline | Compression via quantization |
