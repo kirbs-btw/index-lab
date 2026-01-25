@@ -19,17 +19,16 @@ mod learner;
 mod sparse;
 
 pub use config::AtlasConfig;
+pub use ndarray::{Array1, Array2};
 pub use error::{AtlasError, Result};
 pub use hybrid_bucket::HybridBucket;
 pub use learner::ClusterRouter;
 pub use sparse::SparseVector;
 
-use index_core::{distance, DistanceMetric, ScoredPoint, VectorIndex};
+use index_core::{distance, DistanceMetric, ScoredPoint, Vector, VectorIndex};
 use index_hnsw::{HnswConfig, HnswIndex};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-
 use hybrid_bucket::BucketConfig;
 
 /// Main ATLAS index implementation
@@ -105,10 +104,10 @@ impl AtlasIndex {
         let mut centroid_graph = HnswIndex::new(
             metric,
             HnswConfig {
-                m: 16,
+                m_max: 16,
                 ef_construction: 100,
                 ef_search: 50,
-                ..Default::default()
+                ml: 1.0 / 2.0_f64.ln(),
             },
         );
 
@@ -123,10 +122,10 @@ impl AtlasIndex {
         // Step 3: Assign vectors to buckets
         let bucket_config = BucketConfig {
             hnsw_config: HnswConfig {
-                m: config.mini_hnsw_m,
+                m_max: config.mini_hnsw_m,
                 ef_construction: config.mini_hnsw_ef_construction,
                 ef_search: config.mini_hnsw_ef_search,
-                ..Default::default()
+                ml: 1.0 / 2.0_f64.ln(),
             },
             dense_weight: config.dense_weight,
             metric,
@@ -177,7 +176,7 @@ impl AtlasIndex {
             dimension: Some(dimension),
             total_vectors: n,
             metric,
-            config,
+            config: config.clone(),
         };
 
         // Train router with a few iterations on the dataset
@@ -256,9 +255,9 @@ impl AtlasIndex {
 
     /// Route via centroid graph (fallback)
     fn route_via_graph(&self, query: &[f32]) -> Result<Vec<usize>> {
-        let results = self
+       let results = self
             .centroid_graph
-            .search(query, self.config.n_probes)
+            .search(&query.to_vec(), self.config.n_probes)
             .map_err(|e| AtlasError::HnswError(e.to_string()))?;
 
         Ok(results.iter().map(|sp| sp.id).collect())
@@ -347,6 +346,14 @@ impl VectorIndex for AtlasIndex {
             }
         } else {
             self.dimension = Some(vector.len());
+            // Re-initialize router with correct dimension
+            self.router = ClusterRouter::new(
+                vector.len(),
+                self.config.router_hidden_dim,
+                1,  // Start with 1 cluster
+                self.config.router_learning_rate,
+                self.config.seed,
+            );
         }
 
         // Route to cluster
@@ -358,8 +365,10 @@ impl VectorIndex for AtlasIndex {
                 vector.clone(),
                 &BucketConfig {
                     hnsw_config: HnswConfig {
-                        m: self.config.mini_hnsw_m,
-                        ..Default::default()
+                        m_max: self.config.mini_hnsw_m,
+                        ef_construction: self.config.mini_hnsw_ef_construction,
+                        ef_search: self.config.mini_hnsw_ef_search,
+                        ml: 1.0 / 2.0_f64.ln(),
                     },
                     dense_weight: self.config.dense_weight,
                     metric: self.metric,
@@ -377,9 +386,8 @@ impl VectorIndex for AtlasIndex {
         Ok(())
     }
 
-    fn search(&self, query: &[f32], limit: usize) -> anyhow::Result<Vec<ScoredPoint>> {
-        // Dense-only search (use empty sparse query)
-        self.search_hybrid( query, &SparseVector::empty(), limit)
+    fn search(&self, query: &Vector, limit: usize) -> anyhow::Result<Vec<ScoredPoint>> {
+        self.search_hybrid(query, &SparseVector::empty(), limit)
             .map_err(|e| e.into())
     }
 }
@@ -502,7 +510,8 @@ mod tests {
         assert_eq!(index.len(), 3);
 
         // Search
-        let results = index.search(&vec![1.0; 64], 2).unwrap();
+        let query = vec![1.0; 64];
+        let results = index.search(&query, 2).unwrap();
 
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].id, 0); // Closest should be vector 0

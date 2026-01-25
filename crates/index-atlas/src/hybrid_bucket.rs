@@ -1,4 +1,4 @@
-use index_core::{distance, DistanceMetric, ScoredPoint, VectorIndex};
+use index_core::{DistanceMetric, ScoredPoint, VectorIndex};
 use index_hnsw::{HnswConfig, HnswIndex};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -91,7 +91,7 @@ impl HybridBucket {
     /// Pure dense search using HNSW
     pub fn search_dense(&self, query: &[f32], k: usize) -> Result<Vec<ScoredPoint>> {
         self.dense_index
-            .search(query, k)
+            .search(&query.to_vec(), k)
             .map_err(|e| AtlasError::HnswError(e.to_string()))
     }
 
@@ -110,7 +110,7 @@ impl HybridBucket {
         // Strategy: Get dense candidates, filter/boost by sparse
         let dense_candidates = self
             .dense_index
-            .search(dense_query, k * 3)
+            .search(&dense_query.to_vec(), k * 3)
             .map_err(|e| AtlasError::HnswError(e.to_string()))?;
 
         // Get sparse candidates from inverted index
@@ -121,7 +121,7 @@ impl HybridBucket {
         candidate_set.extend(sparse_candidates);
 
         // Compute hybrid scores for all candidates
-        let metric = self.dense_index.metric();
+        let _metric = self.dense_index.metric();
         let mut scored_results = Vec::new();
 
         for candidate_id in candidate_set {
@@ -199,19 +199,17 @@ mod tests {
     use super::*;
 
     fn create_test_config() -> BucketConfig {
-        BucketConfig {
+        let config = BucketConfig {
             hnsw_config: HnswConfig {
-                m: 8,
+                m_max: 16,
                 ef_construction: 50,
                 ef_search: 30,
-                m_max: 16,
-                m_max_0: 32,
-                ml: 1.0 / (8.0_f32).ln(),
-                seed: 42,
+                ml: 1.0 / 2.0_f64.ln(),
             },
             dense_weight: 0.6,
             metric: DistanceMetric::Euclidean,
-        }
+        };
+        config
     }
 
     #[test]
@@ -240,7 +238,8 @@ mod tests {
         assert_eq!(bucket.len(), 3);
 
         // Search for vector closest to [1.0; 64]
-        let results = bucket.search_dense(&vec![1.0; 64], 2).unwrap();
+        let query_vec = vec![1.0; 64];
+        let results = bucket.search_dense(&query_vec, 2).unwrap();
 
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].id, 0); // Should be closest
