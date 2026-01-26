@@ -6,50 +6,50 @@ pub struct AtlasConfig {
     // Router configuration
     /// Number of clusters (default: sqrt(N), will be set during build)
     pub num_clusters: Option<usize>,
-    
+
     /// Hidden dimension for the learned router MLP
     pub router_hidden_dim: usize,
-    
+
     /// Learning rate for router training
     pub router_learning_rate: f32,
-    
+
     /// Confidence threshold for using learned router vs graph fallback
     pub confidence_threshold: f32,
-    
+
     /// Enable online learning (update router during queries)
     pub enable_online_learning: bool,
 
     // Search configuration
     /// Number of buckets to probe during search
     pub n_probes: usize,
-    
+
     /// Use learned routing (if false, always use graph)
     pub use_learned_routing: bool,
 
     // Bucket configuration (mini-HNSW)
     /// Number of edges per node in mini-HNSW
     pub mini_hnsw_m: usize,
-    
+
     /// ef_construction for mini-HNSW
     pub mini_hnsw_ef_construction: usize,
-    
+
     /// ef_search for mini-HNSW
     pub mini_hnsw_ef_search: usize,
 
     // Hybrid configuration
     /// Weight for dense component (0.0 = all sparse, 1.0 = all dense)
     pub dense_weight: f32,
-    
+
     /// Enable sparse indexing
     pub enable_sparse: bool,
 
     // Build configuration
     /// Random seed for reproducibility
     pub seed: u64,
-    
+
     /// Maximum K-Means iterations during initial clustering
     pub max_kmeans_iters: usize,
-    
+
     /// Subsample size for router training (None = use all)
     pub router_training_subsample: Option<usize>,
 }
@@ -58,11 +58,11 @@ impl Default for AtlasConfig {
     fn default() -> Self {
         Self {
             // Router
-            num_clusters: None,  // Will be set to sqrt(N)
+            num_clusters: None, // Will be set to sqrt(N)
             router_hidden_dim: 128,
             router_learning_rate: 0.001,
             confidence_threshold: 0.7,
-            enable_online_learning: false,  // Disabled by default for stability
+            enable_online_learning: false, // Disabled by default for stability
 
             // Search
             n_probes: 3,
@@ -174,15 +174,19 @@ mod tests {
 
     #[test]
     fn test_invalid_learning_rate() {
-        let mut config = AtlasConfig::default();
-        config.router_learning_rate = 1.5;
+        let config = AtlasConfig {
+            router_learning_rate: 1.5,
+            ..Default::default()
+        };
         assert!(config.validate().is_err());
     }
 
     #[test]
     fn test_invalid_dense_weight() {
-        let mut config = AtlasConfig::default();
-        config.dense_weight = 1.5;
+        let config = AtlasConfig {
+            dense_weight: 1.5,
+            ..Default::default()
+        };
         assert!(config.validate().is_err());
     }
 }

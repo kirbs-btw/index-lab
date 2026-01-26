@@ -19,17 +19,17 @@ mod learner;
 mod sparse;
 
 pub use config::AtlasConfig;
-pub use ndarray::{Array1, Array2};
 pub use error::{AtlasError, Result};
 pub use hybrid_bucket::HybridBucket;
 pub use learner::ClusterRouter;
+pub use ndarray::{Array1, Array2};
 pub use sparse::SparseVector;
 
+use hybrid_bucket::BucketConfig;
 use index_core::{distance, DistanceMetric, ScoredPoint, Vector, VectorIndex};
 use index_hnsw::{HnswConfig, HnswIndex};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use hybrid_bucket::BucketConfig;
 
 /// Main ATLAS index implementation
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,7 +78,7 @@ impl AtlasIndex {
         config.validate()?;
 
         if vectors.is_empty() {
-            return Ok(Self::new(metric, config)?);
+            return Self::new(metric, config);
         }
 
         let dimension = vectors[0].1.len();
@@ -96,7 +96,8 @@ impl AtlasIndex {
         );
 
         // Step 1: K-Means clustering to initialize centroids
-        let centroids = kmeans_clustering(&vectors, num_clusters, config.max_kmeans_iters, config.seed)?;
+        let centroids =
+            kmeans_clustering(&vectors, num_clusters, config.max_kmeans_iters, config.seed)?;
 
         println!("K-Means clustering complete: {} centroids", centroids.len());
 
@@ -143,7 +144,7 @@ impl AtlasIndex {
             let mut best_dist = f32::MAX;
 
             for (cluster_id, centroid) in centroids.iter().enumerate() {
-                let dist = distance(metric, &vector, centroid)
+                let dist = distance(metric, vector, centroid)
                     .map_err(|e| AtlasError::BucketError(e.to_string()))?;
                 if dist < best_dist {
                     best_dist = dist;
@@ -255,7 +256,7 @@ impl AtlasIndex {
 
     /// Route via centroid graph (fallback)
     fn route_via_graph(&self, query: &[f32]) -> Result<Vec<usize>> {
-       let results = self
+        let results = self
             .centroid_graph
             .search(&query.to_vec(), self.config.n_probes)
             .map_err(|e| AtlasError::HnswError(e.to_string()))?;
@@ -350,7 +351,7 @@ impl VectorIndex for AtlasIndex {
             self.router = ClusterRouter::new(
                 vector.len(),
                 self.config.router_hidden_dim,
-                1,  // Start with 1 cluster
+                1, // Start with 1 cluster
                 self.config.router_learning_rate,
                 self.config.seed,
             );
@@ -455,8 +456,12 @@ fn kmeans_clustering(
             }
 
             // Check for convergence
-            let dist = distance(DistanceMetric::Euclidean, &centroids[cluster_id], &new_centroid)
-                .map_err(|e| AtlasError::BucketError(e.to_string()))?;
+            let dist = distance(
+                DistanceMetric::Euclidean,
+                &centroids[cluster_id],
+                &new_centroid,
+            )
+            .map_err(|e| AtlasError::BucketError(e.to_string()))?;
             if dist > 1e-4 {
                 converged = false;
             }
@@ -494,7 +499,7 @@ mod tests {
         let index = AtlasIndex::build(vectors, DistanceMetric::Euclidean, config).unwrap();
 
         assert_eq!(index.len(), 100);
-        assert!(index.centroids.len() > 0);
+        assert!(!index.centroids.is_empty());
     }
 
     #[test]

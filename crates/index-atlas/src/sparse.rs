@@ -113,7 +113,7 @@ mod tests {
     fn test_dot_product() {
         let sv1 = SparseVector::new(vec![(1, 1.0), (2, 2.0), (3, 3.0)]);
         let sv2 = SparseVector::new(vec![(2, 1.0), (3, 1.0), (4, 1.0)]);
-        
+
         // (2*1) + (3*1) = 5.0
         let dot = sv1.dot_product(&sv2);
         assert_relative_eq!(dot, 5.0, epsilon = 1e-6);
@@ -123,7 +123,7 @@ mod tests {
     fn test_dot_product_no_overlap() {
         let sv1 = SparseVector::new(vec![(1, 1.0), (2, 2.0)]);
         let sv2 = SparseVector::new(vec![(3, 1.0), (4, 1.0)]);
-        
+
         let dot = sv1.dot_product(&sv2);
         assert_relative_eq!(dot, 0.0, epsilon = 1e-6);
     }
@@ -139,7 +139,7 @@ mod tests {
     fn test_cosine_similarity() {
         let sv1 = SparseVector::new(vec![(1, 1.0), (2, 0.0)]);
         let sv2 = SparseVector::new(vec![(1, 1.0), (2, 0.0)]);
-        
+
         // Identical vectors should have cosine = 1.0
         assert_relative_eq!(sv1.cosine_similarity(&sv2), 1.0, epsilon = 1e-6);
     }
@@ -148,7 +148,7 @@ mod tests {
     fn test_cosine_similarity_orthogonal() {
         let sv1 = SparseVector::new(vec![(1, 1.0)]);
         let sv2 = SparseVector::new(vec![(2, 1.0)]);
-        
+
         // Orthogonal vectors should have cosine = 0.0
         assert_relative_eq!(sv1.cosine_similarity(&sv2), 0.0, epsilon = 1e-6);
     }

@@ -1,3 +1,5 @@
+#![allow(clippy::needless_range_loop)]
+
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -16,10 +18,10 @@ pub struct ClusterPrediction {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClusterRouter {
     // Network weights
-    w1: Vec<Vec<f32>>,  // input_dim × hidden_dim
-    w2: Vec<Vec<f32>>,  // hidden_dim × num_clusters
-    b1: Vec<f32>,       // hidden_dim
-    b2: Vec<f32>,       // num_clusters
+    w1: Vec<Vec<f32>>, // input_dim × hidden_dim
+    w2: Vec<Vec<f32>>, // hidden_dim × num_clusters
+    b1: Vec<f32>,      // hidden_dim
+    b2: Vec<f32>,      // num_clusters
 
     // Configuration
     learning_rate: f32,
@@ -140,7 +142,7 @@ impl ClusterRouter {
     }
 
     /// Online learning: update weights based on feedback
-    /// 
+    ///
     /// `true_clusters`: cluster IDs that actually contained relevant results
     pub fn update(&mut self, query: &[f32], true_clusters: &[usize]) -> Result<()> {
         if query.len() != self.input_dim {
@@ -244,10 +246,7 @@ fn softmax(logits: &[f32]) -> Vec<f32> {
         return vec![];
     }
 
-    let max_logit = logits
-        .iter()
-        .cloned()
-        .fold(f32::NEG_INFINITY, f32::max);
+    let max_logit = logits.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
 
     let exp_sums: Vec<f32> = logits.iter().map(|&x| (x - max_logit).exp()).collect();
     let sum: f32 = exp_sums.iter().sum();
@@ -280,11 +279,11 @@ mod tests {
 
         // Check all probabilities are in [0, 1]
         for &p in &pred.probabilities {
-            assert!(p >= 0.0 && p <= 1.0);
+            assert!((0.0..=1.0).contains(&p));
         }
 
         // Check max_confidence is valid
-        assert!(pred.max_confidence >= 0.0 && pred.max_confidence <= 1.0);
+        assert!((0.0..=1.0).contains(&pred.max_confidence));
     }
 
     #[test]

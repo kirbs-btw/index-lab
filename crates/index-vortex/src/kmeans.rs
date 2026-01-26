@@ -1,6 +1,5 @@
 use index_core::{distance, DistanceMetric, Vector};
 use rand::seq::SliceRandom;
-use rand::Rng;
 
 #[derive(Debug, Clone)]
 pub struct KMeans {
@@ -22,7 +21,7 @@ impl KMeans {
         }
 
         let mut rng = rand::thread_rng();
-        
+
         // 1. Initialize centroids by sampling k random points
         // If data is smaller than k, just use all data
         if data.len() <= k {
@@ -31,17 +30,14 @@ impl KMeans {
             // However, to ensure exactly k centroids might optionally duplicate, but let's stick to unique if possible.
             // If data < k, effectively we have data.len() clusters.
         } else {
-            self.centroids = data
-                .choose_multiple(&mut rng, k)
-                .cloned()
-                .collect();
+            self.centroids = data.choose_multiple(&mut rng, k).cloned().collect();
         }
 
         // 2. Iterative optimization
         for _ in 0..max_iter {
             // Assignment step
             let mut assignments = vec![Vec::new(); self.centroids.len()];
-            
+
             for point in data {
                 let (nearest_idx, _) = self.find_nearest(point);
                 assignments[nearest_idx].push(point);
@@ -67,10 +63,10 @@ impl KMeans {
                         sum[d] += val;
                     }
                 }
-                
+
                 let count = cluster_points.len() as f32;
                 let mean: Vector = sum.into_iter().map(|v| v / count).collect();
-                
+
                 if distance(self.metric, &mean, &self.centroids[i]).unwrap_or(0.0) > 1e-5 {
                     changed = true;
                 }

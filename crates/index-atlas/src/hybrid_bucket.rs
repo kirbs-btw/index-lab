@@ -76,10 +76,7 @@ impl HybridBucket {
 
         // Update inverted index for each sparse term
         for &term_id in sparse.term_ids().iter() {
-            self.inverted_index
-                .entry(term_id)
-                .or_insert_with(Vec::new)
-                .push(id);
+            self.inverted_index.entry(term_id).or_default().push(id);
         }
 
         // Store sparse vector
@@ -126,14 +123,15 @@ impl HybridBucket {
 
         for candidate_id in candidate_set {
             // Get dense score (recompute or use cached)
-            let dense_score = if let Some(sp) = dense_candidates.iter().find(|sp| sp.id == candidate_id) {
-                sp.distance
-            } else {
-                // Not in dense top-k, need to compute distance
-                // This requires access to the vector, which HNSW doesn't expose directly
-                // For now, we'll skip candidates not in dense results
-                continue;
-            };
+            let dense_score =
+                if let Some(sp) = dense_candidates.iter().find(|sp| sp.id == candidate_id) {
+                    sp.distance
+                } else {
+                    // Not in dense top-k, need to compute distance
+                    // This requires access to the vector, which HNSW doesn't expose directly
+                    // For now, we'll skip candidates not in dense results
+                    continue;
+                };
 
             // Get sparse score
             let sparse_score = if let Some(sv) = self.sparse_vectors.get(&candidate_id) {
@@ -148,8 +146,8 @@ impl HybridBucket {
             let normalized_sparse = sparse_score;
 
             // Fuse scores
-            let fused_score =
-                self.dense_weight * normalized_dense + (1.0 - self.dense_weight) * normalized_sparse;
+            let fused_score = self.dense_weight * normalized_dense
+                + (1.0 - self.dense_weight) * normalized_sparse;
 
             scored_results.push(ScoredPoint::new(candidate_id, fused_score));
         }
@@ -199,7 +197,7 @@ mod tests {
     use super::*;
 
     fn create_test_config() -> BucketConfig {
-        let config = BucketConfig {
+        BucketConfig {
             hnsw_config: HnswConfig {
                 m_max: 16,
                 ef_construction: 50,
@@ -208,8 +206,7 @@ mod tests {
             },
             dense_weight: 0.6,
             metric: DistanceMetric::Euclidean,
-        };
-        config
+        }
     }
 
     #[test]
@@ -270,10 +267,18 @@ mod tests {
 
         // Insert vectors with overlapping sparse terms
         bucket
-            .insert_hybrid(0, vec![1.0; 64], SparseVector::new(vec![(1, 0.5), (2, 0.3)]))
+            .insert_hybrid(
+                0,
+                vec![1.0; 64],
+                SparseVector::new(vec![(1, 0.5), (2, 0.3)]),
+            )
             .unwrap();
         bucket
-            .insert_hybrid(1, vec![2.0; 64], SparseVector::new(vec![(2, 0.4), (3, 0.6)]))
+            .insert_hybrid(
+                1,
+                vec![2.0; 64],
+                SparseVector::new(vec![(2, 0.4), (3, 0.6)]),
+            )
             .unwrap();
 
         // Check inverted index
@@ -295,7 +300,11 @@ mod tests {
             .insert_hybrid(1, vec![2.0; 64], SparseVector::new(vec![(2, 0.5)]))
             .unwrap();
         bucket
-            .insert_hybrid(2, vec![3.0; 64], SparseVector::new(vec![(1, 0.5), (2, 0.5)]))
+            .insert_hybrid(
+                2,
+                vec![3.0; 64],
+                SparseVector::new(vec![(1, 0.5), (2, 0.5)]),
+            )
             .unwrap();
 
         // Query with term 1
