@@ -67,6 +67,20 @@ pub trait VectorIndex {
 
     /// Queries the index for the `limit` nearest neighbours to `query`.
     fn search(&self, query: &Vector, limit: usize) -> Result<Vec<ScoredPoint>>;
+
+    /// Deletes a vector by its identifier.
+    /// Returns `true` if the vector was found and deleted, `false` if not found.
+    /// Default implementation returns an error indicating deletion is not supported.
+    fn delete(&mut self, _id: usize) -> Result<bool> {
+        Err(anyhow::anyhow!("delete not implemented for this index type"))
+    }
+
+    /// Updates an existing vector by its identifier.
+    /// Returns `true` if the vector was found and updated, `false` if not found.
+    /// Default implementation returns an error indicating update is not supported.
+    fn update(&mut self, _id: usize, _vector: Vector) -> Result<bool> {
+        Err(anyhow::anyhow!("update not implemented for this index type"))
+    }
 }
 
 /// Computes the distance between two vectors according to the desired metric.

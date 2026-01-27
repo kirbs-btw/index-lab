@@ -456,6 +456,74 @@ impl VectorIndex for HnswIndex {
 
         Ok(results)
     }
+
+    fn delete(&mut self, id: usize) -> Result<bool> {
+        // Find the node index by ID
+        let node_idx_opt = self.nodes.iter().position(|node| node.id == id);
+        
+        if let Some(node_idx) = node_idx_opt {
+            // Collect neighbor information before mutating
+            let neighbor_connections: Vec<(usize, usize)> = self.nodes[node_idx]
+                .layers
+                .iter()
+                .enumerate()
+                .flat_map(|(layer_idx, neighbors)| {
+                    neighbors.iter().map(move |&neighbor_id| (layer_idx, neighbor_id))
+                })
+                .collect();
+            
+            // Remove edges from all neighbors (bidirectional removal)
+            for (layer_idx, neighbor_id) in neighbor_connections {
+                if neighbor_id < self.nodes.len() {
+                    // Remove this node from neighbor's connections
+                    self.nodes[neighbor_id].layers[layer_idx].retain(|&n| n != node_idx);
+                }
+            }
+            
+            // Remove the node
+            self.nodes.remove(node_idx);
+            
+            // Update node indices in all remaining nodes' connections
+            for node in &mut self.nodes {
+                for layer in &mut node.layers {
+                    for neighbor_idx in layer.iter_mut() {
+                        if *neighbor_idx > node_idx {
+                            *neighbor_idx -= 1;
+                        }
+                    }
+                }
+            }
+            
+            // Update entry point if it was the deleted node
+            if self.entry_point == Some(node_idx) {
+                // Find a new entry point (highest layer node)
+                self.entry_point = self.nodes.iter()
+                    .enumerate()
+                    .max_by_key(|(_, node)| node.layers.len())
+                    .map(|(idx, _)| idx);
+            } else if let Some(ref mut entry) = self.entry_point {
+                if *entry > node_idx {
+                    *entry -= 1;
+                }
+            }
+            
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn update(&mut self, id: usize, vector: Vector) -> Result<bool> {
+        self.validate_dimension(&vector)?;
+        
+        // Find the node by ID
+        if let Some(node) = self.nodes.iter_mut().find(|n| n.id == id) {
+            node.vector = vector;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
 }
 
 #[cfg(test)]

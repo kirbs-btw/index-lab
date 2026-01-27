@@ -149,6 +149,8 @@ pub struct HybridIndex {
     dense_stats: DistributionStats,
     /// Statistics for sparse score normalization
     sparse_stats: DistributionStats,
+    /// Inverted index: term_id -> entry indices containing this term
+    inverted_index: HashMap<u32, Vec<usize>>,
 }
 
 impl HybridIndex {
@@ -161,6 +163,7 @@ impl HybridIndex {
             entries: Vec::new(),
             dense_stats: DistributionStats::new(),
             sparse_stats: DistributionStats::new(),
+            inverted_index: HashMap::new(),
         }
     }
 
@@ -243,7 +246,17 @@ impl HybridIndex {
             self.dimension = Some(dense.len());
         }
 
+        let entry_idx = self.entries.len();
         let entry = HybridEntry { id, dense, sparse };
+        
+        // Update inverted index: add this entry index to all terms it contains
+        for (term_id, _weight) in &entry.sparse {
+            self.inverted_index
+                .entry(*term_id)
+                .or_insert_with(Vec::new)
+                .push(entry_idx);
+        }
+        
         self.entries.push(entry);
         Ok(())
     }
@@ -259,13 +272,36 @@ impl HybridIndex {
         ensure!(!self.entries.is_empty(), HybridError::EmptyIndex);
         self.validate_dimension(dense_query)?;
 
-        // Compute scores for all entries
-        let mut candidates: Vec<(usize, f32, f32)> = Vec::with_capacity(self.entries.len());
+        // Use inverted index to find candidate entries containing query terms
+        let mut candidate_indices: std::collections::HashSet<usize> = std::collections::HashSet::new();
+        
+        if !sparse_query.is_empty() && !self.inverted_index.is_empty() {
+            // Collect entry indices that contain any query term
+            for term_id in sparse_query.keys() {
+                if let Some(entry_indices) = self.inverted_index.get(term_id) {
+                    candidate_indices.extend(entry_indices.iter().copied());
+                }
+            }
+            
+            // If no candidates found via inverted index, fall back to all entries
+            // (this handles the case where query terms don't match any indexed terms)
+            if candidate_indices.is_empty() {
+                candidate_indices = (0..self.entries.len()).collect();
+            }
+        } else {
+            // No sparse query or no inverted index: use all entries
+            candidate_indices = (0..self.entries.len()).collect();
+        }
 
-        for entry in &self.entries {
-            let dense_dist = distance(self.metric, dense_query, &entry.dense)?;
-            let sparse_sim = self.sparse_similarity(sparse_query, &entry.sparse);
-            candidates.push((entry.id, dense_dist, sparse_sim));
+        // Compute scores only for candidate entries
+        let mut candidates: Vec<(usize, f32, f32)> = Vec::with_capacity(candidate_indices.len());
+
+        for &entry_idx in &candidate_indices {
+            if let Some(entry) = self.entries.get(entry_idx) {
+                let dense_dist = distance(self.metric, dense_query, &entry.dense)?;
+                let sparse_sim = self.sparse_similarity(sparse_query, &entry.sparse);
+                candidates.push((entry.id, dense_dist, sparse_sim));
+            }
         }
 
         // Update statistics for normalization (using observed scores)
@@ -355,6 +391,51 @@ impl VectorIndex for HybridIndex {
         candidates.sort_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap());
         candidates.truncate(limit);
         Ok(candidates)
+    }
+
+    fn delete(&mut self, id: usize) -> Result<bool> {
+        // Find the entry index
+        let idx_opt = self.entries.iter().position(|entry| entry.id == id);
+        
+        if let Some(idx) = idx_opt {
+            let removed_entry = self.entries.remove(idx);
+            
+            // Update inverted index: remove this entry index from all its terms
+            for term_id in removed_entry.sparse.keys() {
+                if let Some(entry_indices) = self.inverted_index.get_mut(term_id) {
+                    entry_indices.retain(|&i| i != idx);
+                    // Update indices of entries after the removed one
+                    for entry_idx in entry_indices.iter_mut() {
+                        if *entry_idx > idx {
+                            *entry_idx -= 1;
+                        }
+                    }
+                }
+            }
+            
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn update(&mut self, id: usize, vector: Vector) -> Result<bool> {
+        self.validate_dimension(&vector)?;
+        
+        // Find the entry index
+        let idx_opt = self.entries.iter().position(|entry| entry.id == id);
+        
+        if let Some(idx) = idx_opt {
+            // Update dense vector (sparse stays the same for VectorIndex::update)
+            self.entries[idx].dense = vector;
+            
+            // Note: For full hybrid update, use insert_hybrid with new sparse vector
+            // This implementation only updates dense vector as per VectorIndex trait
+            
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 }
 

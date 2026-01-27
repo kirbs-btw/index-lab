@@ -109,6 +109,24 @@ impl VectorIndex for LinearIndex {
         candidates.truncate(limit.min(candidates.len()));
         Ok(candidates)
     }
+
+    fn delete(&mut self, id: usize) -> Result<bool> {
+        let initial_len = self.entries.len();
+        self.entries.retain(|(entry_id, _)| *entry_id != id);
+        Ok(self.entries.len() < initial_len)
+    }
+
+    fn update(&mut self, id: usize, vector: Vector) -> Result<bool> {
+        self.validate_dimension(&vector)?;
+        
+        for (entry_id, entry_vector) in &mut self.entries {
+            if *entry_id == id {
+                *entry_vector = vector;
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
 }
 
 #[cfg(test)]

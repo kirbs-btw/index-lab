@@ -382,6 +382,38 @@ impl VectorIndex for IvfIndex {
 
         Ok(candidates)
     }
+
+    fn delete(&mut self, id: usize) -> Result<bool> {
+        let mut found = false;
+        
+        // Search through all clusters to find and remove the vector
+        for cluster in &mut self.clusters {
+            let initial_len = cluster.len();
+            cluster.retain(|(entry_id, _)| *entry_id != id);
+            
+            if cluster.len() < initial_len {
+                found = true;
+                self.vector_count -= 1;
+                break;
+            }
+        }
+        
+        Ok(found)
+    }
+
+    fn update(&mut self, id: usize, vector: Vector) -> Result<bool> {
+        self.validate_dimension(&vector)?;
+        
+        // Find and update the vector in clusters
+        for cluster in &mut self.clusters {
+            if let Some((entry_id, entry_vector)) = cluster.iter_mut().find(|(eid, _)| *eid == id) {
+                *entry_vector = vector;
+                return Ok(true);
+            }
+        }
+        
+        Ok(false)
+    }
 }
 
 #[cfg(test)]

@@ -20,6 +20,7 @@ use index_core::{
 };
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::Path;
 use thiserror::Error;
 
@@ -128,6 +129,17 @@ impl LocalityPredictor {
         score
     }
 
+    /// Computes LSH bucket hash from projections (binary hash based on sign)
+    fn hash_to_bucket(&self, vector: &[f32]) -> usize {
+        let projections = self.project(vector);
+        projections
+            .iter()
+            .enumerate()
+            .fold(0usize, |hash, (i, &proj)| {
+                hash | ((proj > 0.0) as usize) << i
+            })
+    }
+
     /// Trains the predictor by adjusting weights based on true neighbor relationships
     fn train(
         &mut self,
@@ -198,6 +210,8 @@ impl LocalityPredictor {
 struct VectorEntry {
     id: usize,
     vector: Vector,
+    /// LSH bucket hash (computed from predictor projections)
+    bucket: Option<usize>,
 }
 
 /// SEER index implementation
@@ -212,6 +226,8 @@ pub struct SeerIndex {
     predictor: Option<LocalityPredictor>,
     /// Whether build has been called (predictor trained)
     is_built: bool,
+    /// LSH buckets: bucket_hash -> vector indices
+    buckets: HashMap<usize, Vec<usize>>,
 }
 
 impl SeerIndex {
@@ -224,6 +240,7 @@ impl SeerIndex {
             vectors: Vec::new(),
             predictor: None,
             is_built: false,
+            buckets: HashMap::new(),
         }
     }
 
@@ -249,7 +266,7 @@ impl SeerIndex {
         self.dimension
     }
 
-    /// Trains the locality predictor on the current dataset
+    /// Trains the locality predictor on the current dataset and rebuilds buckets
     fn train_predictor(&mut self) {
         if let Some(dim) = self.dimension {
             let mut predictor =
@@ -269,6 +286,20 @@ impl SeerIndex {
             );
 
             self.predictor = Some(predictor);
+
+            // Rebuild buckets using the trained predictor
+            self.rebuild_buckets();
+        }
+    }
+
+    /// Rebuilds LSH buckets from current vectors using the predictor
+    fn rebuild_buckets(&mut self) {
+        self.buckets.clear();
+        if let Some(ref predictor) = self.predictor {
+            for (idx, entry) in self.vectors.iter().enumerate() {
+                let bucket_hash = predictor.hash_to_bucket(&entry.vector);
+                self.buckets.entry(bucket_hash).or_insert_with(Vec::new).push(idx);
+            }
         }
     }
 
@@ -293,12 +324,20 @@ impl VectorIndex for SeerIndex {
     }
 
     fn build(&mut self, data: impl IntoIterator<Item = (usize, Vector)>) -> Result<()> {
-        // Insert all vectors first
+        // Insert all vectors first (without buckets, will be set after training)
         for (id, vector) in data {
-            self.insert(id, vector)?;
+            self.validate_dimension(&vector)?;
+            if self.dimension.is_none() {
+                self.dimension = Some(vector.len());
+            }
+            self.vectors.push(VectorEntry {
+                id,
+                vector,
+                bucket: None,
+            });
         }
 
-        // Train the predictor
+        // Train the predictor and rebuild buckets
         self.train_predictor();
         self.is_built = true;
 
@@ -312,7 +351,20 @@ impl VectorIndex for SeerIndex {
             self.dimension = Some(vector.len());
         }
 
-        self.vectors.push(VectorEntry { id, vector });
+        // Compute bucket if predictor exists
+        let bucket = if let Some(ref predictor) = self.predictor {
+            Some(predictor.hash_to_bucket(&vector))
+        } else {
+            None
+        };
+
+        let idx = self.vectors.len();
+        self.vectors.push(VectorEntry { id, vector, bucket });
+
+        // Add to bucket if we have a predictor
+        if let Some(bucket_hash) = bucket {
+            self.buckets.entry(bucket_hash).or_insert_with(Vec::new).push(idx);
+        }
 
         // If we've already built, mark as needing rebuild for optimal performance
         // (In practice, we'd want incremental updates, but for now just note it)
@@ -329,34 +381,81 @@ impl VectorIndex for SeerIndex {
         ensure!(!self.vectors.is_empty(), SeerError::EmptyIndex);
         self.validate_dimension(query)?;
 
-        // If we have a predictor, use it to filter candidates
+        // If we have a predictor and buckets, use LSH bucketing for O(1) candidate lookup
         let candidates: Vec<&VectorEntry> = if let Some(ref predictor) = self.predictor {
-            // Score all vectors with the predictor
-            let mut scored: Vec<(&VectorEntry, f32)> = self
-                .vectors
-                .iter()
-                .map(|entry| {
-                    let score = predictor.score(query, &entry.vector);
-                    (entry, score)
-                })
-                .collect();
+            if !self.buckets.is_empty() {
+                // Use LSH bucketing: only score vectors in the same bucket as query
+                let query_bucket = predictor.hash_to_bucket(query);
+                
+                // Get candidate indices from the query's bucket
+                let candidate_indices: Vec<usize> = self
+                    .buckets
+                    .get(&query_bucket)
+                    .cloned()
+                    .unwrap_or_default();
 
-            // Sort by score (descending - higher score = more likely neighbor)
-            scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+                // If bucket is too small, also check neighboring buckets (Hamming distance 1)
+                let mut all_candidate_indices = candidate_indices;
+                if all_candidate_indices.len() < self.config.min_candidates {
+                    for bit in 0..self.config.n_projections {
+                        let neighbor_bucket = query_bucket ^ (1 << bit);
+                        if let Some(neighbor_indices) = self.buckets.get(&neighbor_bucket) {
+                            all_candidate_indices.extend(neighbor_indices);
+                        }
+                    }
+                }
 
-            // Select top candidates based on threshold
-            let threshold_idx =
-                ((1.0 - self.config.candidate_threshold) * scored.len() as f32) as usize;
-            let n_candidates = threshold_idx
-                .max(self.config.min_candidates)
-                .max(limit)
-                .min(scored.len());
+                // Score only the candidates from buckets
+                let mut scored: Vec<(&VectorEntry, f32)> = all_candidate_indices
+                    .iter()
+                    .filter_map(|&idx| {
+                        self.vectors.get(idx).map(|entry| {
+                            let score = predictor.score(query, &entry.vector);
+                            (entry, score)
+                        })
+                    })
+                    .collect();
 
-            scored
-                .into_iter()
-                .take(n_candidates)
-                .map(|(entry, _)| entry)
-                .collect()
+                // Sort by score (descending - higher score = more likely neighbor)
+                scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+                // Select top candidates based on threshold (FIXED: now correctly uses candidate_threshold)
+                let threshold_idx = (self.config.candidate_threshold * scored.len() as f32) as usize;
+                let n_candidates = threshold_idx
+                    .max(self.config.min_candidates)
+                    .max(limit)
+                    .min(scored.len());
+
+                scored
+                    .into_iter()
+                    .take(n_candidates)
+                    .map(|(entry, _)| entry)
+                    .collect()
+            } else {
+                // Fallback: score all vectors (shouldn't happen if buckets are built)
+                let mut scored: Vec<(&VectorEntry, f32)> = self
+                    .vectors
+                    .iter()
+                    .map(|entry| {
+                        let score = predictor.score(query, &entry.vector);
+                        (entry, score)
+                    })
+                    .collect();
+
+                scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+                let threshold_idx = (self.config.candidate_threshold * scored.len() as f32) as usize;
+                let n_candidates = threshold_idx
+                    .max(self.config.min_candidates)
+                    .max(limit)
+                    .min(scored.len());
+
+                scored
+                    .into_iter()
+                    .take(n_candidates)
+                    .map(|(entry, _)| entry)
+                    .collect()
+            }
         } else {
             // No predictor, use all vectors (fallback to linear scan)
             self.vectors.iter().collect()
@@ -377,6 +476,79 @@ impl VectorIndex for SeerIndex {
         results.truncate(limit);
 
         Ok(results)
+    }
+
+    fn delete(&mut self, id: usize) -> Result<bool> {
+        // Find the index of the vector with this ID
+        let idx_opt = self.vectors.iter().position(|entry| entry.id == id);
+        
+        if let Some(idx) = idx_opt {
+            // Remove from vectors
+            let removed_entry = self.vectors.remove(idx);
+            
+            // Update buckets: remove this index from its bucket
+            if let Some(bucket_hash) = removed_entry.bucket {
+                if let Some(bucket_indices) = self.buckets.get_mut(&bucket_hash) {
+                    bucket_indices.retain(|&i| i != idx);
+                    // Also need to update indices of vectors after the removed one
+                    for bucket_indices in self.buckets.values_mut() {
+                        for bucket_idx in bucket_indices.iter_mut() {
+                            if *bucket_idx > idx {
+                                *bucket_idx -= 1;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn update(&mut self, id: usize, vector: Vector) -> Result<bool> {
+        self.validate_dimension(&vector)?;
+        
+        // Find the index of the vector with this ID
+        let idx_opt = self.vectors.iter().position(|entry| entry.id == id);
+        
+        if let Some(idx) = idx_opt {
+            let old_entry = &self.vectors[idx];
+            let old_bucket = old_entry.bucket;
+            
+            // Update the vector
+            let new_bucket = if let Some(ref predictor) = self.predictor {
+                Some(predictor.hash_to_bucket(&vector))
+            } else {
+                None
+            };
+            
+            self.vectors[idx] = VectorEntry {
+                id,
+                vector,
+                bucket: new_bucket,
+            };
+            
+            // Update buckets if bucket changed
+            if old_bucket != new_bucket {
+                // Remove from old bucket
+                if let Some(old_bucket_hash) = old_bucket {
+                    if let Some(bucket_indices) = self.buckets.get_mut(&old_bucket_hash) {
+                        bucket_indices.retain(|&i| i != idx);
+                    }
+                }
+                
+                // Add to new bucket
+                if let Some(new_bucket_hash) = new_bucket {
+                    self.buckets.entry(new_bucket_hash).or_insert_with(Vec::new).push(idx);
+                }
+            }
+            
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 }
 
