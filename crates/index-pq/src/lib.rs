@@ -480,6 +480,36 @@ impl VectorIndex for PqIndex {
 
         Ok(candidates)
     }
+
+    fn delete(&mut self, id: usize) -> Result<bool> {
+        // Find the index by ID
+        let idx_opt = self.ids.iter().position(|&entry_id| entry_id == id);
+        
+        if let Some(idx) = idx_opt {
+            self.codes.remove(idx);
+            self.ids.remove(idx);
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn update(&mut self, id: usize, vector: Vector) -> Result<bool> {
+        self.validate_dimension(&vector)?;
+        ensure!(!self.codebooks.is_empty(), PqError::NotTrained);
+        
+        // Find the index by ID
+        let idx_opt = self.ids.iter().position(|&entry_id| entry_id == id);
+        
+        if let Some(idx) = idx_opt {
+            // Re-encode the vector
+            let codes = self.encode_vector(&vector)?;
+            self.codes[idx] = codes;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
 }
 
 #[cfg(test)]
