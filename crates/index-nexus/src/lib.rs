@@ -302,6 +302,20 @@ impl NexusIndex {
         self.projector.as_ref().map(|p| p.project(query))
     }
 
+    /// Validates vector dimension
+    fn validate_dimension(&self, vector: &[f32]) -> Result<()> {
+        if let Some(dim) = self.dimension {
+            ensure!(
+                vector.len() == dim,
+                NexusError::DimensionMismatch {
+                    expected: dim,
+                    actual: vector.len(),
+                }
+            );
+        }
+        Ok(())
+    }
+
     /// Saves the index to a JSON file
     pub fn save(&self, path: impl AsRef<Path>) -> Result<()> {
         index_core::save_index(self, path)
@@ -487,6 +501,59 @@ impl VectorIndex for NexusIndex {
         final_results.truncate(limit);
 
         Ok(final_results)
+    }
+
+    fn delete(&mut self, id: usize) -> Result<bool> {
+        // Find node index by id
+        let node_idx_opt = self.graph.nodes.iter().position(|n| n.id == id);
+        
+        if let Some(node_idx) = node_idx_opt {
+            // Remove from neighbors lists of all nodes
+            for node in &mut self.graph.nodes {
+                // Remove references to this node index
+                node.neighbors.retain(|&idx| idx != node_idx);
+                // Decrement indices greater than removed index
+                for idx in &mut node.neighbors {
+                    if *idx > node_idx {
+                        *idx -= 1;
+                    }
+                }
+            }
+            
+            // Remove the node
+            self.graph.nodes.remove(node_idx);
+            
+            // Mark as needing rebuild (graph structure changed)
+            self.is_built = false;
+            
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn update(&mut self, id: usize, vector: Vector) -> Result<bool> {
+        self.validate_dimension(&vector)?;
+        
+        // Find node by id
+        let node_opt = self.graph.nodes.iter_mut().find(|n| n.id == id);
+        
+        if let Some(node) = node_opt {
+            // Update vector
+            node.vector = vector.clone();
+            
+            // Re-project to spectral space
+            if let Some(projector) = &self.projector {
+                node.spectral = projector.project(&vector);
+            }
+            
+            // Mark as needing rebuild (entropy/neighbors may have changed)
+            self.is_built = false;
+            
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 }
 

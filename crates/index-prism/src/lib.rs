@@ -415,6 +415,14 @@ impl VectorIndex for PrismIndex {
 
         Ok(results)
     }
+
+    fn delete(&mut self, id: usize) -> Result<bool> {
+        self.base_index.delete(id)
+    }
+
+    fn update(&mut self, id: usize, vector: Vector) -> Result<bool> {
+        self.base_index.update(id, vector)
+    }
 }
 
 /// Mutable session-aware search (use this for full session benefits)

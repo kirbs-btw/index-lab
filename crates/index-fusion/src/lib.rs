@@ -666,6 +666,133 @@ impl VectorIndex for FusionIndex {
             .map(|(global_idx, dist)| ScoredPoint::new(self.vectors[global_idx].id, dist))
             .collect())
     }
+
+    fn delete(&mut self, id: usize) -> Result<bool> {
+        // Find vector index by ID
+        let idx_opt = self.vectors.iter().position(|entry| entry.id == id);
+        
+        if let Some(idx) = idx_opt {
+            let removed_entry = self.vectors.remove(idx);
+            
+            // Find which bucket contains this vector
+            if let Some(hasher) = &self.hasher {
+                let bucket_id = hasher.hash(&removed_entry.vector);
+                if bucket_id < self.buckets.len() {
+                    // Remove from bucket's mini-graph
+                    let bucket = &mut self.buckets[bucket_id];
+                    if let Some(local_idx) = bucket.vector_ids.iter().position(|&gid| gid == idx) {
+                        bucket.vector_ids.remove(local_idx);
+                        bucket.edges.remove(local_idx);
+                        
+                        // Update edges: remove references to removed node and adjust indices
+                        for edges_list in &mut bucket.edges {
+                            edges_list.retain(|&lid| lid != local_idx);
+                            for lid in edges_list.iter_mut() {
+                                if *lid > local_idx {
+                                    *lid -= 1;
+                                }
+                            }
+                        }
+                        
+                        // Update entry point if needed
+                        if bucket.entry_point == Some(local_idx) {
+                            bucket.entry_point = if !bucket.vector_ids.is_empty() { Some(0) } else { None };
+                        } else if let Some(ref mut entry) = bucket.entry_point {
+                            if *entry > local_idx {
+                                *entry -= 1;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Update global indices in all buckets (decrement indices > idx)
+            for bucket in &mut self.buckets {
+                for gid in &mut bucket.vector_ids {
+                    if *gid > idx {
+                        *gid -= 1;
+                    }
+                }
+            }
+            
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn update(&mut self, id: usize, vector: Vector) -> Result<bool> {
+        self.validate_dimension(&vector)?;
+        
+        // Find vector index by ID
+        let idx_opt = self.vectors.iter().position(|entry| entry.id == id);
+        
+        if let Some(idx) = idx_opt {
+            let old_entry = &self.vectors[idx];
+            let old_vector = old_entry.vector.clone();
+            
+            // Compute old and new buckets
+            if let Some(hasher) = &self.hasher {
+                let old_bucket = hasher.hash(&old_vector);
+                let new_bucket = hasher.hash(&vector);
+                
+                // Update vector
+                self.vectors[idx] = VectorEntry {
+                    id,
+                    vector: vector.clone(),
+                };
+                
+                // Update buckets if bucket changed
+                if old_bucket != new_bucket {
+                    // Remove from old bucket
+                    if old_bucket < self.buckets.len() {
+                        let bucket = &mut self.buckets[old_bucket];
+                        if let Some(local_idx) = bucket.vector_ids.iter().position(|&gid| gid == idx) {
+                            bucket.vector_ids.remove(local_idx);
+                            bucket.edges.remove(local_idx);
+                            
+                            // Update edges
+                            for edges_list in &mut bucket.edges {
+                                edges_list.retain(|&lid| lid != local_idx);
+                                for lid in edges_list.iter_mut() {
+                                    if *lid > local_idx {
+                                        *lid -= 1;
+                                    }
+                                }
+                            }
+                            
+                            // Update entry point
+                            if bucket.entry_point == Some(local_idx) {
+                                bucket.entry_point = if !bucket.vector_ids.is_empty() { Some(0) } else { None };
+                            } else if let Some(ref mut entry) = bucket.entry_point {
+                                if *entry > local_idx {
+                                    *entry -= 1;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Add to new bucket (re-insert into mini-graph)
+                    if new_bucket < self.buckets.len() {
+                        self.buckets[new_bucket].insert(idx, &vector, &self.vectors, self.metric)?;
+                    }
+                } else {
+                    // Same bucket, just update the vector (graph structure unchanged)
+                    // The graph search will use the updated vector automatically
+                }
+            } else {
+                // No hasher yet, just update the vector
+                self.vectors[idx] = VectorEntry {
+                    id,
+                    vector,
+                };
+            }
+            
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
 }
 
 #[cfg(test)]

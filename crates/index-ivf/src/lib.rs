@@ -406,7 +406,7 @@ impl VectorIndex for IvfIndex {
         
         // Find and update the vector in clusters
         for cluster in &mut self.clusters {
-            if let Some((entry_id, entry_vector)) = cluster.iter_mut().find(|(eid, _)| *eid == id) {
+            if let Some((_entry_id, entry_vector)) = cluster.iter_mut().find(|(eid, _)| *eid == id) {
                 *entry_vector = vector;
                 return Ok(true);
             }

@@ -222,6 +222,73 @@ impl VectorIndex for VortexIndex {
 
         Ok(candidates)
     }
+
+    fn delete(&mut self, id: usize) -> Result<bool> {
+        if !self.trained {
+            return Err(VortexError::NotTrained.into());
+        }
+        
+        // Remove from vectors map
+        if self.vectors.remove(&id).is_some() {
+            // Find and remove from bucket
+            for bucket in &mut self.buckets {
+                bucket.retain(|&bucket_id| bucket_id != id);
+            }
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn update(&mut self, id: usize, vector: Vector) -> Result<bool> {
+        if !self.trained {
+            return Err(VortexError::NotTrained.into());
+        }
+        
+        if let Some(dim) = self.dimension {
+            validate_dimension(Some(dim), vector.len())
+                .map_err(|_| VortexError::DimensionMismatch)?;
+        } else {
+            self.dimension = Some(vector.len());
+        }
+        
+        // Check if vector exists
+        if !self.vectors.contains_key(&id) {
+            return Ok(false);
+        }
+        
+        // Find old bucket
+        let old_vector = self.vectors.get(&id).cloned();
+        let old_bucket_idx = if let Some(old_vec) = &old_vector {
+            let result = self.centroid_index.search(old_vec, 1)?;
+            result.first().map(|sp| sp.id)
+        } else {
+            None
+        };
+        
+        // Find new bucket
+        let result = self.centroid_index.search(&vector, 1)?;
+        let new_bucket_idx = result.first().map(|sp| sp.id);
+        
+        // Update vector
+        self.vectors.insert(id, vector);
+        
+        // Update bucket assignment if changed
+        if let (Some(old_bucket), Some(new_bucket)) = (old_bucket_idx, new_bucket_idx) {
+            if old_bucket != new_bucket {
+                // Remove from old bucket
+                if old_bucket < self.buckets.len() {
+                    self.buckets[old_bucket].retain(|&bucket_id| bucket_id != id);
+                }
+                // Add to new bucket
+                if new_bucket < self.buckets.len() {
+                    self.buckets[new_bucket].push(id);
+                }
+            }
+        }
+        
+        Ok(true)
+    }
 }
 
 #[cfg(test)]

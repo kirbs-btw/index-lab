@@ -214,6 +214,46 @@ impl MiniGraph {
         self.is_built = false;
     }
 
+    /// Removes a vector's global index from this bucket.
+    fn remove(&mut self, global_idx: usize) {
+        if let Some(local_idx) = self.global_indices.iter().position(|&idx| idx == global_idx) {
+            self.global_indices.remove(local_idx);
+            self.edges.remove(local_idx);
+            
+            // Update edges: remove references to removed node and adjust indices
+            for edges_list in &mut self.edges {
+                edges_list.retain(|&idx| idx != local_idx);
+                // Decrement indices greater than removed index
+                for idx in edges_list.iter_mut() {
+                    if *idx > local_idx {
+                        *idx -= 1;
+                    }
+                }
+            }
+            
+            // Update entry point if needed
+            if self.entry_point == Some(local_idx) {
+                self.entry_point = if !self.global_indices.is_empty() { Some(0) } else { None };
+            } else if let Some(ref mut entry) = self.entry_point {
+                if *entry > local_idx {
+                    *entry -= 1;
+                }
+            }
+            
+            self.is_built = false;
+        }
+    }
+
+    /// Updates global indices after a removal at a higher index.
+    fn update_indices_after_removal(&mut self, removed_idx: usize) {
+        // Update global indices
+        for global_idx in &mut self.global_indices {
+            if *global_idx > removed_idx {
+                *global_idx -= 1;
+            }
+        }
+    }
+
     /// Returns the number of vectors in this bucket.
     fn len(&self) -> usize {
         self.global_indices.len()
@@ -670,6 +710,76 @@ impl VectorIndex for SwiftIndex {
             .collect();
 
         Ok(results)
+    }
+
+    fn delete(&mut self, id: usize) -> Result<bool> {
+        // Find the vector index by ID
+        let idx_opt = self.vectors.iter().position(|entry| entry.id == id);
+        
+        if let Some(idx) = idx_opt {
+            let removed_entry = self.vectors.remove(idx);
+            let bucket_idx = removed_entry.bucket;
+            
+            // Remove from bucket's mini-graph
+            if bucket_idx < self.buckets.len() {
+                self.buckets[bucket_idx].remove(idx);
+                
+                // Update indices in all buckets (decrement indices > idx)
+                for bucket in &mut self.buckets {
+                    bucket.update_indices_after_removal(idx);
+                }
+            }
+            
+            // Mark as needing rebuild
+            self.is_built = false;
+            
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn update(&mut self, id: usize, vector: Vector) -> Result<bool> {
+        self.validate_dimension(&vector)?;
+        
+        // Find the vector index by ID
+        let idx_opt = self.vectors.iter().position(|entry| entry.id == id);
+        
+        if let Some(idx) = idx_opt {
+            let old_entry = &self.vectors[idx];
+            let old_bucket = old_entry.bucket;
+            
+            // Compute new bucket
+            self.ensure_bucketer(vector.len());
+            let new_bucket = self.bucketer.as_ref().unwrap().hash(&vector);
+            
+            // Update vector
+            self.vectors[idx] = VectorEntry {
+                id,
+                vector,
+                bucket: new_bucket,
+            };
+            
+            // Update buckets if bucket changed
+            if old_bucket != new_bucket {
+                // Remove from old bucket
+                if old_bucket < self.buckets.len() {
+                    self.buckets[old_bucket].remove(idx);
+                }
+                
+                // Add to new bucket
+                if new_bucket < self.buckets.len() {
+                    self.buckets[new_bucket].add(idx);
+                }
+            }
+            
+            // Mark as needing rebuild
+            self.is_built = false;
+            
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 }
 

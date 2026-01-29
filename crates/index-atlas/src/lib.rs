@@ -391,6 +391,62 @@ impl VectorIndex for AtlasIndex {
         self.search_hybrid(query, &SparseVector::empty(), limit)
             .map_err(|e| e.into())
     }
+
+    fn delete(&mut self, id: usize) -> anyhow::Result<bool> {
+        // Try to delete from each bucket until we find it
+        for bucket in &mut self.buckets {
+            if bucket.delete(id)? {
+                self.total_vectors = self.total_vectors.saturating_sub(1);
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
+    fn update(&mut self, id: usize, vector: Vector) -> anyhow::Result<bool> {
+        // Validate dimension
+        if let Some(dim) = self.dimension {
+            if vector.len() != dim {
+                return Err(AtlasError::DimensionMismatch {
+                    expected: dim,
+                    actual: vector.len(),
+                }
+                .into());
+            }
+        }
+
+        // Find which bucket should contain this vector
+        let new_cluster_id = self.find_best_cluster(&vector)?;
+        
+        // First, try to find which bucket currently contains the vector
+        let mut found_bucket: Option<usize> = None;
+        for (bucket_id, bucket) in self.buckets.iter_mut().enumerate() {
+            // Try to delete (but don't actually delete) - we can't do this without mutation
+            // Instead, try update - if it succeeds, we found the bucket
+            if bucket.update(id, vector.clone())? {
+                found_bucket = Some(bucket_id);
+                break;
+            }
+        }
+
+        if let Some(old_bucket_id) = found_bucket {
+            // Vector was found and updated
+            // Check if bucket assignment changed
+            if old_bucket_id != new_cluster_id {
+                // Need to move to new bucket
+                // Delete from old bucket (revert the update by deleting)
+                self.buckets[old_bucket_id].delete(id)?;
+                // Insert into new bucket
+                if new_cluster_id < self.buckets.len() {
+                    self.buckets[new_cluster_id].insert(id, vector)?;
+                }
+            }
+            // else: already updated in correct bucket
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
 }
 
 /// K-Means clustering (simplified implementation)
