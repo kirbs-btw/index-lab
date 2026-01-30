@@ -12,6 +12,7 @@ use clap::{Parser, ValueEnum};
 use index_core::{
     generate_query_set, generate_uniform_dataset, DistanceMetric, ScoredPoint, Vector, VectorIndex,
 };
+use index_armi::ArmiIndex;
 use index_fusion::FusionIndex;
 use index_hnsw::HnswIndex;
 use index_hybrid::HybridIndex;
@@ -42,6 +43,7 @@ enum IndexWrapper {
     Nexus(NexusIndex),
     Fusion(FusionIndex),
     Vortex(VortexIndex),
+    Armi(ArmiIndex),
 }
 
 impl VectorIndex for IndexWrapper {
@@ -59,6 +61,7 @@ impl VectorIndex for IndexWrapper {
             Self::Nexus(idx) => idx.metric(),
             Self::Fusion(idx) => idx.metric(),
             Self::Vortex(idx) => idx.metric(),
+            Self::Armi(idx) => idx.metric(),
         }
     }
 
@@ -76,6 +79,7 @@ impl VectorIndex for IndexWrapper {
             Self::Nexus(idx) => idx.len(),
             Self::Fusion(idx) => idx.len(),
             Self::Vortex(idx) => idx.len(),
+            Self::Armi(idx) => idx.len(),
         }
     }
 
@@ -93,6 +97,7 @@ impl VectorIndex for IndexWrapper {
             Self::Nexus(idx) => idx.insert(id, vector),
             Self::Fusion(idx) => idx.insert(id, vector),
             Self::Vortex(idx) => idx.insert(id, vector),
+            Self::Armi(idx) => idx.insert(id, vector),
         }
     }
 
@@ -110,6 +115,7 @@ impl VectorIndex for IndexWrapper {
             Self::Nexus(idx) => idx.search(query, limit),
             Self::Fusion(idx) => idx.search(query, limit),
             Self::Vortex(idx) => idx.search(query, limit),
+            Self::Armi(idx) => idx.search(query, limit),
         }
     }
 }
@@ -128,6 +134,7 @@ enum IndexType {
     Nexus,
     Fusion,
     Vortex,
+    Armi,
 }
 
 #[derive(Debug, Parser)]
@@ -914,6 +921,51 @@ fn main() -> Result<()> {
                 &cli,
             )?;
         }
+        IndexType::Armi => {
+            run_benchmark(
+                "ARMI",
+                |load_path| {
+                    println!("Loading ARMI index from {}...", load_path.display());
+                    let load_start = Instant::now();
+                    let loaded = ArmiIndex::load(load_path).with_context(|| {
+                        format!("failed to load index from {}", load_path.display())
+                    })?;
+                    let load_time = load_start.elapsed();
+                    println!(
+                        "Loaded index in {:.2?} ({} vectors, metric: {:?})",
+                        load_time,
+                        loaded.len(),
+                        loaded.metric()
+                    );
+                    Ok((IndexWrapper::Armi(loaded), load_time))
+                },
+                || {
+                    let mut index = ArmiIndex::with_defaults(runtime.metric);
+                    let build_start = Instant::now();
+                    index.build(dataset.clone())?;
+                    let build_time = build_start.elapsed();
+                    Ok((IndexWrapper::Armi(index), build_time))
+                },
+                |idx, path| {
+                    if let IndexWrapper::Armi(inner) = idx {
+                        inner.save(path).with_context(|| {
+                            format!("failed to save index to {}", path.display())
+                        })?;
+                        println!(
+                            "Saved ARMI index to {} ({} vectors)",
+                            path.display(),
+                            inner.len()
+                        );
+                    }
+                    Ok(())
+                },
+                false, // Not exhaustive (uses multi-modal graph with adaptive tuning)
+                &dataset,
+                &queries,
+                &runtime,
+                &cli,
+            )?;
+        }
     }
 
     // Note: report_json is handled in print_results if needed
@@ -963,6 +1015,7 @@ fn print_results(
         IndexWrapper::Nexus(_) => "nexus",
         IndexWrapper::Fusion(_) => "fusion",
         IndexWrapper::Vortex(_) => "vortex",
+        IndexWrapper::Armi(_) => "armi",
     };
 
     let (avg_recall, min_recall, max_recall) = recall_metrics;

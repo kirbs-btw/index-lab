@@ -15,6 +15,7 @@ members = [
     "crates/bench-runner",
     "crates/index-vortex",
     "crates/index-atlas",
+    "crates/index-armi",
 ]
 resolver = "2"
 
