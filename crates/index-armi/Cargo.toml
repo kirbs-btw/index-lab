@@ -1,0 +1,15 @@
+[package]
+name = "index-armi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+index-core = { path = "../index-core" }
+index-hnsw = { path = "../index-hnsw" }
+rand.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+ndarray = "0.15"
