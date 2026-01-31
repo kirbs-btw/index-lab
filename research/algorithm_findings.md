@@ -17,6 +17,7 @@ A summary of findings from the novel algorithms implemented and tested in `index
 | **FUSION** (Fast Unified Search with Intelligent Orchestrated Navigation) | `index-fusion` | Novel | LSH + Mini-graphs (fixes O(n) issues) |
 | **VORTEX** (Voronoi-Optimized Routing for Traversal) | `index-vortex` | Novel | Cluster-based graph routing (Gap 2B) |
 | **ATLAS** (Adaptive Tiered Layered Aggregation System) | `index-atlas` | Novel | Learned routing + hybrid buckets (Gaps 1A, 2C, 3A, 7A) |
+| **ARMI** (Adaptive Robust Multi-Modal Index) | `index-armi` | Novel | Multi-modal + robustness + adaptive tuning (Gaps 1B, 5, 6A, 6B, 7A) |
 | **HNSW** | `index-hnsw` | Baseline | Graph-based state-of-the-art |
 | **IVF** | `index-ivf` | Baseline | Clustering-based indexing |
 | **PQ** | `index-pq` | Baseline | Compression via quantization |
@@ -334,6 +335,55 @@ Builds a small HNSW graph on K-Means centroids for O(log C) routing.
 ### Recommendations
 1. **Subsample Training** - Speed up build
 2. **Parallelize** - Assign vectors to buckets in parallel
+
+---
+
+## ARMI Algorithm (Adaptive Robust Multi-Modal Index)
+
+### What It Does
+Combines **multi-modal data support** (dense, sparse, audio), **distribution shift detection**, **adaptive parameter tuning**, **energy-aware execution**, and **deterministic search** into a unified indexing system.
+
+**Key Innovations:**
+- **Multi-Modal Graph**: Unified graph with cross-modal edges
+- **Shift Detection**: Statistical monitoring (KS test, KL divergence) with automatic adaptation
+- **RL-Based Tuning**: Reinforcement learning for optimal search parameters
+- **Precision Scaling**: FP32 → FP16 → INT8 based on energy budgets
+- **Deterministic**: Seeded RNG for reproducible results
+
+### ✅ Upsides
+| Advantage | Description |
+|-----------|-------------|
+| **Comprehensive** | Addresses 5 research gaps simultaneously (1B, 5, 6A, 6B, 7A) |
+| **Multi-Modal** | First algorithm with true multi-modal support (dense + sparse + audio) |
+| **Robust** | Distribution shift detection and adaptation |
+| **Adaptive** | RL-based parameter optimization |
+| **Energy Efficient** | Precision scaling for energy-aware execution |
+| **Deterministic** | Reproducible results via seeded RNG |
+| **Unique Value** | Only algorithm combining all these capabilities |
+
+### ❌ Downsides
+| Issue | Severity | Description |
+|-------|----------|-------------|
+| **O(n²) Build Time** | 🔴 Critical | Graph construction scans all nodes per insertion |
+| **Incomplete Integration** | 🟠 Medium | Adaptive tuning and energy optimization not fully integrated |
+| **Memory Overhead** | 🟡 Medium | Stores full multi-modal vectors + graph + statistics |
+| **Complexity** | 🟡 Medium | Many components increase code complexity |
+| **No Benchmarks** | 🔴 Critical | Cannot benchmark at scale due to build time |
+
+### Testing Performed
+- ✅ Multi-modal tests (dense-only, hybrid, cross-modal)
+- ✅ Distribution shift detection
+- ✅ Adaptive parameter tuning
+- ✅ Deterministic behavior verification
+- ✅ Energy efficiency tests
+- ❌ Standard benchmarks (timeout due to O(n²) build)
+- ❌ Large-scale testing (not possible)
+
+### Recommendations
+1. **Fix O(n²) Build** - Add spatial index (LSH/KD-tree) for neighbor finding
+2. **Complete Integration** - Integrate adaptive tuning and energy optimization into search
+3. **Performance Optimization** - Parallel construction, caching, memory optimization
+4. **Benchmarking** - Run small-scale benchmarks once build is fixed
 
 ---
 
