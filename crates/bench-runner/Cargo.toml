@@ -21,6 +21,7 @@ index-fusion = { path = "../index-fusion" }
 index-vortex = { path = "../index-vortex" }
 index-armi = { path = "../index-armi" }
 index-apex = { path = "../index-apex" }
+index-synthesis = { path = "../index-synthesis" }
 rand = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

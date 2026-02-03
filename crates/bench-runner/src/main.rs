@@ -14,6 +14,7 @@ use index_core::{
 };
 use index_apex::ApexIndex;
 use index_armi::ArmiIndex;
+use index_synthesis::SynthesisIndex;
 use index_fusion::FusionIndex;
 use index_hnsw::HnswIndex;
 use index_hybrid::HybridIndex;
@@ -46,6 +47,7 @@ enum IndexWrapper {
     Vortex(VortexIndex),
     Armi(ArmiIndex),
     Apex(ApexIndex),
+    Synthesis(SynthesisIndex),
 }
 
 impl VectorIndex for IndexWrapper {
@@ -65,6 +67,7 @@ impl VectorIndex for IndexWrapper {
             Self::Vortex(idx) => idx.metric(),
             Self::Armi(idx) => idx.metric(),
             Self::Apex(idx) => idx.metric(),
+            Self::Synthesis(idx) => idx.metric(),
         }
     }
 
@@ -84,6 +87,7 @@ impl VectorIndex for IndexWrapper {
             Self::Vortex(idx) => idx.len(),
             Self::Armi(idx) => idx.len(),
             Self::Apex(idx) => idx.len(),
+            Self::Synthesis(idx) => idx.len(),
         }
     }
 
@@ -103,6 +107,7 @@ impl VectorIndex for IndexWrapper {
             Self::Vortex(idx) => idx.insert(id, vector),
             Self::Armi(idx) => idx.insert(id, vector),
             Self::Apex(idx) => idx.insert(id, vector),
+            Self::Synthesis(idx) => idx.insert(id, vector),
         }
     }
 
@@ -122,6 +127,7 @@ impl VectorIndex for IndexWrapper {
             Self::Vortex(idx) => idx.search(query, limit),
             Self::Armi(idx) => idx.search(query, limit),
             Self::Apex(idx) => idx.search(query, limit),
+            Self::Synthesis(idx) => idx.search(query, limit),
         }
     }
 }
@@ -142,6 +148,7 @@ enum IndexType {
     Vortex,
     Armi,
     Apex,
+    Synthesis,
 }
 
 #[derive(Debug, Parser)]
@@ -1018,6 +1025,51 @@ fn main() -> Result<()> {
                 &cli,
             )?;
         }
+        IndexType::Synthesis => {
+            run_benchmark(
+                "SYNTHESIS",
+                |load_path| {
+                    println!("Loading SYNTHESIS index from {}...", load_path.display());
+                    let load_start = Instant::now();
+                    let loaded = SynthesisIndex::load(load_path).with_context(|| {
+                        format!("failed to load index from {}", load_path.display())
+                    })?;
+                    let load_time = load_start.elapsed();
+                    println!(
+                        "Loaded index in {:.2?} ({} vectors, metric: {:?})",
+                        load_time,
+                        loaded.len(),
+                        loaded.metric()
+                    );
+                    Ok((IndexWrapper::Synthesis(loaded), load_time))
+                },
+                || {
+                    let mut index = SynthesisIndex::with_defaults(runtime.metric);
+                    let build_start = Instant::now();
+                    index.build(dataset.clone())?;
+                    let build_time = build_start.elapsed();
+                    Ok((IndexWrapper::Synthesis(index), build_time))
+                },
+                |idx, path| {
+                    if let IndexWrapper::Synthesis(inner) = idx {
+                        inner.save(path).with_context(|| {
+                            format!("failed to save index to {}", path.display())
+                        })?;
+                        println!(
+                            "Saved SYNTHESIS index to {} ({} vectors)",
+                            path.display(),
+                            inner.len()
+                        );
+                    }
+                    Ok(())
+                },
+                false, // Not exhaustive (uses LSH + hierarchical graph with adaptive tuning)
+                &dataset,
+                &queries,
+                &runtime,
+                &cli,
+            )?;
+        }
     }
 
     // Note: report_json is handled in print_results if needed
@@ -1069,6 +1121,7 @@ fn print_results(
         IndexWrapper::Vortex(_) => "vortex",
         IndexWrapper::Armi(_) => "armi",
         IndexWrapper::Apex(_) => "apex",
+        IndexWrapper::Synthesis(_) => "synthesis",
     };
 
     let (avg_recall, min_recall, max_recall) = recall_metrics;
