@@ -81,6 +81,7 @@ dependencies = [
  "clap",
  "index-apex",
  "index-armi",
+ "index-convergence",
  "index-core",
  "index-fusion",
  "index-hnsw",
@@ -287,6 +288,22 @@ dependencies = [
  "rayon",
  "serde",
  "thiserror 2.0.17",
+]
+
+[[package]]
+name = "index-convergence"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "approx",
+ "index-core",
+ "index-hnsw",
+ "ndarray 0.15.6",
+ "rand",
+ "rayon",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

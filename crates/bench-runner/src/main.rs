@@ -15,6 +15,7 @@ use index_core::{
 use index_apex::ApexIndex;
 use index_armi::ArmiIndex;
 use index_synthesis::SynthesisIndex;
+use index_convergence::ConvergenceIndex;
 use index_fusion::FusionIndex;
 use index_hnsw::HnswIndex;
 use index_hybrid::HybridIndex;
@@ -48,6 +49,7 @@ enum IndexWrapper {
     Armi(ArmiIndex),
     Apex(ApexIndex),
     Synthesis(SynthesisIndex),
+    Convergence(ConvergenceIndex),
 }
 
 impl VectorIndex for IndexWrapper {
@@ -68,6 +70,7 @@ impl VectorIndex for IndexWrapper {
             Self::Armi(idx) => idx.metric(),
             Self::Apex(idx) => idx.metric(),
             Self::Synthesis(idx) => idx.metric(),
+            Self::Convergence(idx) => idx.metric(),
         }
     }
 
@@ -88,6 +91,7 @@ impl VectorIndex for IndexWrapper {
             Self::Armi(idx) => idx.len(),
             Self::Apex(idx) => idx.len(),
             Self::Synthesis(idx) => idx.len(),
+            Self::Convergence(idx) => idx.len(),
         }
     }
 
@@ -108,6 +112,7 @@ impl VectorIndex for IndexWrapper {
             Self::Armi(idx) => idx.insert(id, vector),
             Self::Apex(idx) => idx.insert(id, vector),
             Self::Synthesis(idx) => idx.insert(id, vector),
+            Self::Convergence(idx) => idx.insert(id, vector),
         }
     }
 
@@ -128,6 +133,7 @@ impl VectorIndex for IndexWrapper {
             Self::Armi(idx) => idx.search(query, limit),
             Self::Apex(idx) => idx.search(query, limit),
             Self::Synthesis(idx) => idx.search(query, limit),
+            Self::Convergence(idx) => idx.search(query, limit),
         }
     }
 }
@@ -149,6 +155,7 @@ enum IndexType {
     Armi,
     Apex,
     Synthesis,
+    Convergence,
 }
 
 #[derive(Debug, Parser)]
@@ -1070,6 +1077,51 @@ fn main() -> Result<()> {
                 &cli,
             )?;
         }
+        IndexType::Convergence => {
+            run_benchmark(
+                "CONVERGENCE",
+                |load_path| {
+                    println!("Loading CONVERGENCE index from {}...", load_path.display());
+                    let load_start = Instant::now();
+                    let loaded = ConvergenceIndex::load(load_path).with_context(|| {
+                        format!("failed to load index from {}", load_path.display())
+                    })?;
+                    let load_time = load_start.elapsed();
+                    println!(
+                        "Loaded index in {:.2?} ({} vectors, metric: {:?})",
+                        load_time,
+                        loaded.len(),
+                        loaded.metric()
+                    );
+                    Ok((IndexWrapper::Convergence(loaded), load_time))
+                },
+                || {
+                    let mut index = ConvergenceIndex::with_defaults(runtime.metric);
+                    let build_start = Instant::now();
+                    index.build(dataset.clone())?;
+                    let build_time = build_start.elapsed();
+                    Ok((IndexWrapper::Convergence(index), build_time))
+                },
+                |idx, path| {
+                    if let IndexWrapper::Convergence(inner) = idx {
+                        inner.save(path).with_context(|| {
+                            format!("failed to save index to {}", path.display())
+                        })?;
+                        println!(
+                            "Saved CONVERGENCE index to {} ({} vectors)",
+                            path.display(),
+                            inner.len()
+                        );
+                    }
+                    Ok(())
+                },
+                false, // Not exhaustive (uses ensemble routing + hierarchical graphs + adaptive LSH)
+                &dataset,
+                &queries,
+                &runtime,
+                &cli,
+            )?;
+        }
     }
 
     // Note: report_json is handled in print_results if needed
@@ -1122,6 +1174,7 @@ fn print_results(
         IndexWrapper::Armi(_) => "armi",
         IndexWrapper::Apex(_) => "apex",
         IndexWrapper::Synthesis(_) => "synthesis",
+        IndexWrapper::Convergence(_) => "convergence",
     };
 
     let (avg_recall, min_recall, max_recall) = recall_metrics;
@@ -1141,7 +1194,7 @@ fn print_results(
         scenario_note
     );
 
-    if !matches!(index, IndexWrapper::Linear(_)) {
+    if !matches!(index, IndexWrapper::Linear(_) | IndexWrapper::Convergence(_)) {
         println!(
             "Recall@{}: avg={:.4} | min={:.4} | max={:.4}",
             runtime.limit, avg_recall, min_recall, max_recall
