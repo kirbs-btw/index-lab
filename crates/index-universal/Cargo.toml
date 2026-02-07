@@ -1,0 +1,16 @@
+[package]
+name = "index-universal"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+index-core = { path = "../index-core" }
+index-hnsw = { path = "../index-hnsw" }
+rand = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+criterion = "0.5"

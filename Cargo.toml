@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/index-universal",
     "crates/index-core",
     "crates/index-linear",
     "crates/index-hnsw",
