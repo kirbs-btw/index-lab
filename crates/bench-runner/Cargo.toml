@@ -23,6 +23,7 @@ index-armi = { path = "../index-armi" }
 index-apex = { path = "../index-apex" }
 index-synthesis = { path = "../index-synthesis" }
 index-convergence = { path = "../index-convergence" }
+index-zenith = { path = "../index-zenith" }
 rand = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -111,6 +111,7 @@ dependencies = [
  "index-swift",
  "index-synthesis",
  "index-vortex",
+ "index-zenith",
  "rand",
  "serde",
  "serde_json",
@@ -602,6 +603,18 @@ dependencies = [
  "rand",
  "serde",
  "tempfile",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "index-zenith"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "index-core",
+ "rand",
+ "serde",
+ "serde_json",
  "thiserror 1.0.69",
 ]
 

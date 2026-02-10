@@ -20,6 +20,7 @@ members = [
     "crates/index-apex",
     "crates/index-synthesis",
     "crates/index-convergence",
+    "crates/index-zenith",
 ]
 resolver = "2"
 

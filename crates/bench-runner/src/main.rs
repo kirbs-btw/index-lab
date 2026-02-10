@@ -28,6 +28,7 @@ use index_prism::PrismIndex;
 use index_seer::SeerIndex;
 use index_swift::SwiftIndex;
 use index_vortex::VortexIndex;
+use index_zenith::ZenithIndex;
 use scenarios::{ScenarioDetails, ScenarioKind};
 use serde::Serialize;
 use std::collections::HashSet;
@@ -50,6 +51,7 @@ enum IndexWrapper {
     Apex(ApexIndex),
     Synthesis(SynthesisIndex),
     Convergence(ConvergenceIndex),
+    Zenith(ZenithIndex),
 }
 
 impl VectorIndex for IndexWrapper {
@@ -71,6 +73,7 @@ impl VectorIndex for IndexWrapper {
             Self::Apex(idx) => idx.metric(),
             Self::Synthesis(idx) => idx.metric(),
             Self::Convergence(idx) => idx.metric(),
+            Self::Zenith(idx) => idx.metric(),
         }
     }
 
@@ -92,6 +95,7 @@ impl VectorIndex for IndexWrapper {
             Self::Apex(idx) => idx.len(),
             Self::Synthesis(idx) => idx.len(),
             Self::Convergence(idx) => idx.len(),
+            Self::Zenith(idx) => idx.len(),
         }
     }
 
@@ -113,6 +117,7 @@ impl VectorIndex for IndexWrapper {
             Self::Apex(idx) => idx.insert(id, vector),
             Self::Synthesis(idx) => idx.insert(id, vector),
             Self::Convergence(idx) => idx.insert(id, vector),
+            Self::Zenith(idx) => idx.insert(id, vector),
         }
     }
 
@@ -134,6 +139,7 @@ impl VectorIndex for IndexWrapper {
             Self::Apex(idx) => idx.search(query, limit),
             Self::Synthesis(idx) => idx.search(query, limit),
             Self::Convergence(idx) => idx.search(query, limit),
+            Self::Zenith(idx) => idx.search(query, limit),
         }
     }
 }
@@ -156,6 +162,7 @@ enum IndexType {
     Apex,
     Synthesis,
     Convergence,
+    Zenith,
 }
 
 #[derive(Debug, Parser)]
@@ -1122,6 +1129,51 @@ fn main() -> Result<()> {
                 &cli,
             )?;
         }
+        IndexType::Zenith => {
+            run_benchmark(
+                "ZENITH",
+                |load_path| {
+                    println!("Loading ZENITH index from {}...", load_path.display());
+                    let load_start = Instant::now();
+                    let loaded = ZenithIndex::load(load_path).with_context(|| {
+                        format!("failed to load index from {}", load_path.display())
+                    })?;
+                    let load_time = load_start.elapsed();
+                    println!(
+                        "Loaded index in {:.2?} ({} vectors, metric: {:?})",
+                        load_time,
+                        loaded.len(),
+                        loaded.metric()
+                    );
+                    Ok((IndexWrapper::Zenith(loaded), load_time))
+                },
+                || {
+                    let mut index = ZenithIndex::new(runtime.metric);
+                    let build_start = Instant::now();
+                    index.build(dataset.clone())?;
+                    let build_time = build_start.elapsed();
+                    Ok((IndexWrapper::Zenith(index), build_time))
+                },
+                |idx, path| {
+                    if let IndexWrapper::Zenith(inner) = idx {
+                        inner.save(path).with_context(|| {
+                            format!("failed to save index to {}", path.display())
+                        })?;
+                        println!(
+                            "Saved ZENITH index to {} ({} vectors)",
+                            path.display(),
+                            inner.len()
+                        );
+                    }
+                    Ok(())
+                },
+                false, // Not exhaustive (uses HNSW with auto-tuned parameters)
+                &dataset,
+                &queries,
+                &runtime,
+                &cli,
+            )?;
+        }
     }
 
     // Note: report_json is handled in print_results if needed
@@ -1175,6 +1227,7 @@ fn print_results(
         IndexWrapper::Apex(_) => "apex",
         IndexWrapper::Synthesis(_) => "synthesis",
         IndexWrapper::Convergence(_) => "convergence",
+        IndexWrapper::Zenith(_) => "zenith",
     };
 
     let (avg_recall, min_recall, max_recall) = recall_metrics;
