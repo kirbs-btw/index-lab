@@ -4,6 +4,19 @@ This document catalogs all known flaws, weaknesses, and limitations across every
 
 ---
 
+## Structure
+
+| Section | Algorithms |
+|---------|------------|
+| [1. Baseline](#1-baseline-and-reference-algorithms) | Linear, HNSW |
+| [2. Compression](#2-compression-and-quantization) | IVF, PQ |
+| [3. Novel / Research](#3-novel--research-algorithms) | SWIFT, PRISM, NEXUS, SEER, LIM, Hybrid, VORTEX, ARMI, FUSION |
+| [4. Research-Generation](#4-research-generation-algorithms-apex--universal) | APEX, SYNTHESIS, CONVERGENCE, UNIVERSAL, ZENITH |
+| [5. Cross-Cutting](#5-cross-cutting-flaws) | Implementation, parameters, scalability, data |
+| [6. Summary Matrix](#6-summary-matrix) | Quick comparison table |
+
+---
+
 ## 1. Baseline and Reference Algorithms
 
 ### 1.1 Linear

@@ -2,7 +2,19 @@
 
 This document provides a comprehensive analysis of research gaps and emerging opportunities in the vector indexing realm. For state-of-the-art algorithm references, see [Appendix A](#appendix-a-state-of-the-art-algorithms).
 
+---
 
+## Structure
+
+| Section | Content |
+|---------|---------|
+| [Executive Summary](#executive-summary) | Landscape overview |
+| [1–7. Research Gaps](#1-dynamic-indexing-and-streaming-vector-workloads) | Gap 1: Dynamic/Streaming, Gap 2: Hybrid, Gap 3: Learned, Gap 4: Privacy, Gap 5: Energy, Gap 6: Robustness, Gap 7: Context-aware |
+| [8. Emerging Frontiers](#8-emerging-frontiers-synthesis-and-prioritization) | Near-term, medium-term, long-term |
+| [9. Recommendations](#9-practical-recommendations-for-your-research) | Aligned with your expertise |
+| [Appendix A](#appendix-a-state-of-the-art-algorithms) | SOTA algorithm references |
+
+---
 
 ## Executive Summary
 

@@ -4,6 +4,21 @@ A summary of findings from the novel algorithms implemented and tested in `index
 
 ---
 
+## Structure
+
+| Section | Content |
+|---------|---------|
+| [Algorithms Implemented](#algorithms-implemented) | Overview table |
+| [Per-algorithm deep dives](#lim-algorithm-locality-index-method) | LIM, Hybrid, SEER, SWIFT, NEXUS, PRISM, FUSION, VORTEX, ARMI |
+| [Baseline Algorithms](#baseline-algorithms) | HNSW, IVF, PQ |
+| [Benchmark Results](#benchmark-results-verified-2026-01-12) | QPS, recall, build time |
+| [Performance Comparison](#performance-comparison-summary) | Complexity, memory, features |
+| [Next Steps](#next-steps) | Priorities + research extensions |
+
+*See also: [SOTA_SUMMARY.md](./SOTA_SUMMARY.md) for SOTA assessment.*
+
+---
+
 ## Algorithms Implemented
 
 | Algorithm | Crate | Type | Research Gap Addressed |
@@ -18,6 +33,7 @@ A summary of findings from the novel algorithms implemented and tested in `index
 | **VORTEX** (Voronoi-Optimized Routing for Traversal) | `index-vortex` | Novel | Cluster-based graph routing (Gap 2B) |
 | **ATLAS** (Adaptive Tiered Layered Aggregation System) | `index-atlas` | Novel | Learned routing + hybrid buckets (Gaps 1A, 2C, 3A, 7A) |
 | **ARMI** (Adaptive Robust Multi-Modal Index) | `index-armi` | Novel | Multi-modal + robustness + adaptive tuning (Gaps 1B, 5, 6A, 6B, 7A) |
+| **ZENITH** (Zero-configuration Enhanced Navigable Index) | `index-zenith` | Novel | Zero-config HNSW with auto-tuning (best benchmarked) |
 | **HNSW** | `index-hnsw` | Baseline | Graph-based state-of-the-art |
 | **IVF** | `index-ivf` | Baseline | Clustering-based indexing |
 | **PQ** | `index-pq` | Baseline | Compression via quantization |
@@ -430,14 +446,16 @@ Combines **multi-modal data support** (dense, sparse, audio), **distribution shi
 | **PRISM** | 32,389 | 0.8% | 222ms | 🔴 Nearly zero recall |
 | **NEXUS** | 2,329 | 14.6% | 8.39s | 🔴 Low recall, long build |
 | **FUSION** | 527 | 94.0% | 553ms | ✅ High recall, addresses O(n) issues |
+| **ZENITH** | 2,113 | 94.82% | 4.85s | ✅ Best balanced (zero config, see [zenith_analysis.md](./zenith_analysis.md)) |
 
 ### Key Observations
 
-1. **LIM**, **Hybrid**, and **FUSION** are the algorithms with high recall (>90%)
-2. **FUSION** successfully addresses O(n) issues with LSH bucketing + mini-graphs
-3. **HNSW**, **IVF** need parameter tuning for this dataset
-4. **SEER** has good recall but O(n) performance issue remains
-5. **SWIFT**, **PRISM**, **NEXUS** have serious recall issues to investigate
+1. **ZENITH** is the best balanced: 94.82% recall, 2,113 QPS, zero config. See [zenith_analysis.md](./zenith_analysis.md).
+2. **LIM**, **Hybrid**, and **FUSION** also achieve high recall (>90%)
+3. **FUSION** addresses O(n) issues with LSH bucketing + mini-graphs
+4. **HNSW** has catastrophically low recall (1%) with defaults; needs tuning
+5. **SEER** has good recall but O(n) performance issue remains
+6. **SWIFT**, **PRISM**, **NEXUS** have serious recall issues to investigate
 
 ---
 
@@ -473,5 +491,5 @@ Combines **multi-modal data support** (dense, sparse, audio), **distribution shi
 
 ---
 
-*See also: [fusion_analysis.md](./fusion_analysis.md), [seer_analysis.md](./seer_analysis.md), [lim_analysis.md](./lim_analysis.md), [research_gaps.md](./research_gaps.md)*
+*See also: [SOTA_SUMMARY.md](./SOTA_SUMMARY.md), [zenith_analysis.md](./zenith_analysis.md), [fusion_analysis.md](./fusion_analysis.md), [seer_analysis.md](./seer_analysis.md), [lim_analysis.md](./lim_analysis.md), [research_gaps.md](./research_gaps.md)*
 

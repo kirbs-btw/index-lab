@@ -1,5 +1,23 @@
 # Research Summary: Algorithm Evolution and Findings
 
+> **Note**: For a concise SOTA assessment, see [SOTA_SUMMARY.md](./SOTA_SUMMARY.md). ZENITH (post-UNIVERSAL) has actual benchmarks; UNIVERSAL was never benchmarked.
+
+---
+
+## Table of Contents
+
+1. [Executive Summary](#executive-summary)
+2. [Algorithm Evolution Timeline](#algorithm-evolution-timeline) — APEX → SYNTHESIS → CONVERGENCE → UNIVERSAL
+3. [Key Findings and Learnings](#key-findings-and-learnings) — Failures, techniques, design principles
+4. [SOTA Assessment](#sota-assessment) — Comparison to HNSW, novel contributions
+5. [Room for Improvement](#room-for-improvement) — Implementation, performance, research gaps
+6. [Future Research Directions](#future-research-directions) — Immediate to long-term
+7. [Key Learnings Summary](#key-learnings-summary)
+8. [Research Contribution](#research-contribution)
+9. [Conclusion](#conclusion)
+
+---
+
 ## Executive Summary
 
 This document synthesizes the complete research journey from APEX through SYNTHESIS, CONVERGENCE, to UNIVERSAL - four generations of vector indexing algorithms that progressively addressed critical failures and introduced novel innovations. The evolution demonstrates a clear trajectory from complexity accumulation to **simplicity through intelligence**, culminating in UNIVERSAL - an algorithm designed to work optimally for every application with zero configuration.
