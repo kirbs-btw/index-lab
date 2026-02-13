@@ -290,6 +290,11 @@ impl ApexIndex {
 
     /// Route via centroid graph (fallback)
     fn route_via_graph(&self, query: &MultiModalQuery) -> Result<Vec<usize>> {
+        // If centroid graph is empty (incremental inserts), fall back to linear scan
+        if self.centroid_graph.len() == 0 {
+            return self.route_linear_scan(query);
+        }
+
         // Use dense component for routing
         if let Some(dense_query) = &query.dense {
             let results = self
@@ -299,6 +304,29 @@ impl ApexIndex {
             Ok(results.iter().map(|sp| sp.id).collect())
         } else {
             // No dense query, return all clusters
+            Ok((0..self.centroids.len()).collect())
+        }
+    }
+
+    /// Linear scan over centroids for routing (used when centroid graph is not built)
+    fn route_linear_scan(&self, query: &MultiModalQuery) -> Result<Vec<usize>> {
+        if self.centroids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        if let Some(dense_query) = &query.dense {
+            let mut distances: Vec<(usize, f32)> = self.centroids
+                .iter()
+                .enumerate()
+                .map(|(i, c)| {
+                    let d = distance(self.metric, dense_query, c).unwrap_or(f32::MAX);
+                    (i, d)
+                })
+                .collect();
+            distances.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+            let n_probes = self.config.n_probes.min(distances.len());
+            Ok(distances[..n_probes].iter().map(|(id, _)| *id).collect())
+        } else {
             Ok((0..self.centroids.len()).collect())
         }
     }
