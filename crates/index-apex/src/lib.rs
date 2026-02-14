@@ -721,6 +721,32 @@ mod tests {
         assert_eq!(results[0].id, 0);
     }
 
+
+    #[test]
+    fn test_apex_incremental_insert_search() {
+        let mut index = ApexIndex::with_defaults(DistanceMetric::Euclidean);
+
+        // Insert vectors one by one (not via build)
+        for i in 0..10 {
+            let v: Vec<f32> = vec![i as f32; 4];
+            index.insert(i, v).unwrap();
+        }
+
+        let results = index.search(&vec![5.0; 4], 3).unwrap();
+        assert!(!results.is_empty());
+        assert_eq!(results[0].id, 5);
+    }
+
+    #[test]
+    fn test_apex_single_vector_search() {
+        let mut index = ApexIndex::with_defaults(DistanceMetric::Euclidean);
+        index.insert(42, vec![1.0, 2.0, 3.0]).unwrap();
+
+        let results = index.search(&vec![1.0, 2.0, 3.0], 1).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].id, 42);
+    }
+
     #[test]
     fn test_apex_empty_search() {
         let index = ApexIndex::with_defaults(DistanceMetric::Euclidean);
