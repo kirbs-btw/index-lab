@@ -139,7 +139,6 @@ impl ApexIndex {
             .unwrap_or_else(|| (n as f32).sqrt().ceil() as usize)
             .max(1);
 
-        println!("Building APEX index: {} vectors, {} clusters, {} dims", n, num_clusters, dimension);
 
         // Step 1: Initialize LSH neighbor finder
         self.neighbor_finder = Some(NeighborFinder::new(
@@ -156,7 +155,6 @@ impl ApexIndex {
             self.config.seed,
         )?;
 
-        println!("K-Means clustering complete: {} centroids", centroids.len());
 
         // Step 3: Build centroid graph
         let mut centroid_graph = HnswIndex::new(
@@ -230,7 +228,6 @@ impl ApexIndex {
         // Step 6: Train router
         self.train_router(&dataset)?;
 
-        println!("APEX index build complete");
         Ok(())
     }
 
@@ -504,7 +501,6 @@ impl VectorIndex for ApexIndex {
         if self.shift_detector.detect_shift()? {
             // Shift detected - would trigger adaptation
             // For now, just log it
-            println!("Distribution shift detected");
         }
 
         // Update shift detector
