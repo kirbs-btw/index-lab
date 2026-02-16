@@ -328,6 +328,21 @@ impl ApexIndex {
         }
     }
 
+
+    /// Create a BucketConfig from current index configuration
+    fn bucket_config(&self) -> BucketConfig {
+        BucketConfig {
+            hnsw_config: HnswConfig {
+                m_max: self.config.graph_m_max,
+                ef_construction: self.config.graph_ef_construction,
+                ef_search: self.config.graph_ef_search,
+                ml: 1.0 / 2.0_f64.ln(),
+            },
+            dense_weight: self.config.dense_weight,
+            metric: self.metric,
+        }
+    }
+
     /// Adaptive search with multi-modal query
     pub fn search_adaptive(
         &mut self,
@@ -510,35 +525,14 @@ impl VectorIndex for ApexIndex {
         let cluster_id = if self.centroids.is_empty() {
             // First insert - create first cluster
             self.centroids.push(vector.clone());
-            let bucket_config = BucketConfig {
-                hnsw_config: HnswConfig {
-                    m_max: self.config.graph_m_max,
-                    ef_construction: self.config.graph_ef_construction,
-                    ef_search: self.config.graph_ef_search,
-                    ml: 1.0 / 2.0_f64.ln(),
-                },
-                dense_weight: self.config.dense_weight,
-                metric: self.metric,
-            };
-            self.buckets.push(HybridBucket::new(0, vector.clone(), &bucket_config));
+            self.buckets.push(HybridBucket::new(0, vector.clone(), &self.bucket_config()));
             0
         } else {
             self.find_best_cluster(&vector)?
         };
 
         // Insert into bucket using LSH for neighbor finding
-        let bucket_config = BucketConfig {
-            hnsw_config: HnswConfig {
-                m_max: self.config.graph_m_max,
-                ef_construction: self.config.graph_ef_construction,
-                ef_search: self.config.graph_ef_search,
-                ml: 1.0 / 2.0_f64.ln(),
-            },
-            dense_weight: self.config.dense_weight,
-            metric: self.metric,
-        };
-
-        self.buckets[cluster_id].insert_multi_modal(&multi_modal, &bucket_config)?;
+        self.buckets[cluster_id].insert_multi_modal(&multi_modal, &self.bucket_config())?;
         self.vectors.insert(id, multi_modal);
         self.total_vectors += 1;
 
