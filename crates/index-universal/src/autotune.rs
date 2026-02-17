@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 //! Auto-Tuning System
 //! 
 //! Automatically tunes all parameters:

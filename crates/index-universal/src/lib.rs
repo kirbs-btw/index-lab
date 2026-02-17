@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! UNIVERSAL: Unified Neural Vector Index with Robust Adaptive Learning, Intelligent Caching, and Complete Optimization
 //!
 //! The universal vector indexing algorithm that:
