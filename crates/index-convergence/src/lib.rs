@@ -1,3 +1,4 @@
+#![allow(dead_code, unused_imports, unused_variables)]
 //! CONVERGENCE: Convergent Optimal Neural Vector Index with Robust Ensemble, Guaranteed Efficiency, and Complete Integration
 //!
 //! The ultimate vector indexing algorithm that fixes ALL weaknesses from previous algorithms:
