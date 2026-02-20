@@ -254,3 +254,21 @@ Presets available:
 APEX successfully synthesizes the best features from existing algorithms while addressing critical performance bottlenecks. The LSH-accelerated neighbor finding fixes ARMI's O(n²) build time, while multi-modal support, adaptive tuning, and energy efficiency make it a comprehensive solution for modern vector search workloads.
 
 The algorithm is ready for benchmarking and further optimization based on real-world performance data.
+
+## Update: Incremental Insert Fix (Feb 2026)
+
+Found and fixed a critical bug in APEX's search routing. When vectors are
+inserted one-by-one (rather than via `build()`), the centroid graph was never
+populated, causing search to fail with "index is empty" errors.
+
+**Root cause:** `route_via_graph()` relied on `centroid_graph` which is only
+populated during `build()`. Individual inserts add to `self.centroids` but
+not to `self.centroid_graph`.
+
+**Fix:** Added `route_linear_scan()` as fallback when centroid graph is empty.
+This performs O(C) scan over centroids — acceptable since incremental mode
+typically has fewer clusters.
+
+**Remaining weakness:** Incremental insert creates a single cluster and never
+splits it. Large datasets inserted incrementally will have poor routing.
+Need cluster splitting heuristic.
