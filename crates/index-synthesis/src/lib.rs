@@ -1,3 +1,4 @@
+#![allow(dead_code, unused_imports, unused_variables)]
 //! SYNTHESIS: SYNergistic Temporal Hierarchical Index with Efficient Search Integration System
 //!
 //! A next-generation vector index that combines proven techniques:
