@@ -1,3 +1,4 @@
+#![allow(dead_code, unused_imports, unused_variables)]
 //! SEER (Similarity Estimation via Efficient Routing) - Learned Locality Prediction Index
 //!
 //! This implements a novel index structure that uses learned models to predict

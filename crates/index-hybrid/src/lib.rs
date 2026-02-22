@@ -1,3 +1,4 @@
+#![allow(dead_code, unused_imports, unused_variables)]
 //! Hybrid Dense-Sparse Vector Index implementation.
 //!
 //! This implements a unified index structure that natively handles both dense

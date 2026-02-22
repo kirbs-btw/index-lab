@@ -1,3 +1,4 @@
+#![allow(dead_code, unused_imports, unused_variables)]
 //! LIM (Locality Index Method) index implementation.
 //!
 //! This implements an Adaptive Locality-Aware Indexing with Temporal Decay.

@@ -1,3 +1,4 @@
+#![allow(dead_code, unused_imports, unused_variables)]
 //! ZENITH: Zero-configuration Enhanced Navigable Index with Tuned Heuristics
 //!
 //! A refined HNSW that auto-tunes all parameters, uses diversity-aware neighbor

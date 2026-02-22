@@ -1,3 +1,4 @@
+#![allow(dead_code, unused_imports, unused_variables)]
 //! PRISM (Progressive Refinement Index with Session Memory) - Session-Aware Vector Index
 //!
 //! PRISM is a wrapper around HNSW that learns from query sessions to progressively

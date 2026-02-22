@@ -1,3 +1,4 @@
+#![allow(dead_code, unused_imports, unused_variables)]
 //! NEXUS (Neural EXploration with Unified Spectral Routing) - Spectral Manifold Vector Index
 //!
 //! NEXUS exploits manifold structure for faster vector search through:

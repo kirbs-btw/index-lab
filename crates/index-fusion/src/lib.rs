@@ -1,3 +1,4 @@
+#![allow(dead_code, unused_imports, unused_variables)]
 //! FUSION: Fast Unified Search with Intelligent Orchestrated Navigation
 //!
 //! A novel vector index combining:
