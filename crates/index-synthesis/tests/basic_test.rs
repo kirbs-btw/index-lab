@@ -145,3 +145,10 @@ fn test_adaptive_features() {
     let results = index.search(&vec![50.0, 100.0], 10).unwrap();
     assert!(!results.is_empty());
 }
+
+
+#[test]
+fn test_synthesis_config_default() {
+    use index_synthesis::SynthesisConfig;
+    let _config = SynthesisConfig::default();
+}
