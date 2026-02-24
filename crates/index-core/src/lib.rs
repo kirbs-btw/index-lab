@@ -221,6 +221,39 @@ pub fn load_index<T: for<'de> Deserialize<'de>>(path: impl AsRef<Path>) -> Resul
     Ok(index)
 }
 
+
+/// Calculate recall@k: fraction of true nearest neighbors found
+pub fn recall_at_k(results: &[ScoredPoint], ground_truth: &[usize], k: usize) -> f32 {
+    let result_ids: std::collections::HashSet<usize> = results.iter().take(k).map(|sp| sp.id).collect();
+    let truth_ids: std::collections::HashSet<usize> = ground_truth.iter().take(k).cloned().collect();
+    
+    if truth_ids.is_empty() {
+        return 1.0;
+    }
+    
+    let found = result_ids.intersection(&truth_ids).count();
+    found as f32 / truth_ids.len() as f32
+}
+
+/// Brute-force k-nearest neighbors for ground truth computation
+pub fn brute_force_knn(
+    query: &Vector,
+    dataset: &[(usize, Vector)],
+    metric: DistanceMetric,
+    k: usize,
+) -> Vec<ScoredPoint> {
+    let mut results: Vec<ScoredPoint> = dataset
+        .iter()
+        .filter_map(|(id, vec)| {
+            distance(metric, query, vec).ok().map(|d| ScoredPoint::new(*id, d))
+        })
+        .collect();
+    
+    results.sort_by(|a, b| a.distance.partial_cmp(&b.distance).unwrap_or(std::cmp::Ordering::Equal));
+    results.truncate(k);
+    results
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
