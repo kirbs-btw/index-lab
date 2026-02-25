@@ -279,5 +279,45 @@ mod tests {
         let first = generate_uniform_dataset(4, 2, -1.0..1.0, 42);
         let second = generate_uniform_dataset(4, 2, -1.0..1.0, 42);
         assert_eq!(first, second);
+    
+    #[test]
+    fn test_recall_at_k_perfect() {
+        let results = vec![
+            ScoredPoint::new(0, 0.1),
+            ScoredPoint::new(1, 0.2),
+            ScoredPoint::new(2, 0.3),
+        ];
+        let truth = vec![0, 1, 2];
+        assert_eq!(recall_at_k(&results, &truth, 3), 1.0);
     }
+
+    #[test]
+    fn test_recall_at_k_partial() {
+        let results = vec![
+            ScoredPoint::new(0, 0.1),
+            ScoredPoint::new(3, 0.2),
+            ScoredPoint::new(4, 0.3),
+        ];
+        let truth = vec![0, 1, 2];
+        let recall = recall_at_k(&results, &truth, 3);
+        assert!((recall - 1.0 / 3.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_brute_force_knn() {
+        let dataset = vec![
+            (0, vec![0.0, 0.0]),
+            (1, vec![1.0, 0.0]),
+            (2, vec![10.0, 10.0]),
+        ];
+        let query = vec![0.5, 0.0];
+        let results = brute_force_knn(&query, &dataset, DistanceMetric::Euclidean, 2);
+        assert_eq!(results.len(), 2);
+        // id 0 and id 1 should be closest
+        let ids: Vec<usize> = results.iter().map(|r| r.id).collect();
+        assert!(ids.contains(&0));
+        assert!(ids.contains(&1));
+    }
+
+}
 }
