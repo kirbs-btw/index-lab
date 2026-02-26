@@ -222,6 +222,28 @@ pub fn load_index<T: for<'de> Deserialize<'de>>(path: impl AsRef<Path>) -> Resul
 }
 
 
+
+/// Measure queries per second for a given index and query set
+pub fn measure_qps<F>(search_fn: F, queries: &[Vector], k: usize) -> f64
+where
+    F: Fn(&Vector, usize) -> anyhow::Result<Vec<ScoredPoint>>,
+{
+    let start = std::time::Instant::now();
+    let mut count = 0usize;
+    
+    for query in queries {
+        let _ = search_fn(query, k);
+        count += 1;
+    }
+    
+    let elapsed = start.elapsed().as_secs_f64();
+    if elapsed > 0.0 {
+        count as f64 / elapsed
+    } else {
+        f64::INFINITY
+    }
+}
+
 /// Calculate recall@k: fraction of true nearest neighbors found
 pub fn recall_at_k(results: &[ScoredPoint], ground_truth: &[usize], k: usize) -> f32 {
     let result_ids: std::collections::HashSet<usize> = results.iter().take(k).map(|sp| sp.id).collect();
