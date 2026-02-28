@@ -223,6 +223,47 @@ pub fn load_index<T: for<'de> Deserialize<'de>>(path: impl AsRef<Path>) -> Resul
 
 
 
+
+/// Generate a random uniform dataset for benchmarking
+pub fn generate_uniform_dataset(n: usize, dim: usize, seed: u64) -> Vec<(usize, Vector)> {
+    use rand::SeedableRng;
+    let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
+    let dist = rand::distributions::Uniform::new(-1.0f32, 1.0);
+    
+    (0..n)
+        .map(|id| {
+            let vec: Vector = (0..dim).map(|_| rng.sample(dist)).collect();
+            (id, vec)
+        })
+        .collect()
+}
+
+/// Generate a clustered dataset with k Gaussian clusters
+pub fn generate_clustered_dataset(n: usize, dim: usize, k: usize, seed: u64) -> Vec<(usize, Vector)> {
+    use rand::SeedableRng;
+    let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
+    let center_dist = rand::distributions::Uniform::new(-10.0f32, 10.0);
+    let noise_dist = rand::distributions::Uniform::new(-0.5f32, 0.5);
+    
+    // Generate cluster centers
+    let centers: Vec<Vector> = (0..k)
+        .map(|_| (0..dim).map(|_| rng.sample(center_dist)).collect())
+        .collect();
+    
+    let per_cluster = n / k;
+    let mut dataset = Vec::with_capacity(n);
+    
+    for (cluster_idx, center) in centers.iter().enumerate() {
+        for i in 0..per_cluster {
+            let id = cluster_idx * per_cluster + i;
+            let vec: Vector = center.iter().map(|&c| c + rng.sample(noise_dist)).collect();
+            dataset.push((id, vec));
+        }
+    }
+    
+    dataset
+}
+
 /// Measure queries per second for a given index and query set
 pub fn measure_qps<F>(search_fn: F, queries: &[Vector], k: usize) -> f64
 where
