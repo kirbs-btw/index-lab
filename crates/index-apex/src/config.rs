@@ -136,6 +136,11 @@ impl Default for ApexConfig {
 }
 
 impl ApexConfig {
+    /// Maximum vectors per bucket before splitting
+    pub fn max_bucket_size(&self) -> usize {
+        256
+    }
+
     /// Create a configuration optimized for high recall
     pub fn high_recall() -> Self {
         Self {

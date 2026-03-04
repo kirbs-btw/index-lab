@@ -329,6 +329,64 @@ impl ApexIndex {
     }
 
 
+
+    /// Try to split an oversized bucket into two
+    fn try_split_bucket(&mut self, bucket_id: usize) -> Result<()> {
+        // Simple split: find the two most distant vectors, use them as new centroids
+        let bucket = &self.buckets[bucket_id];
+        if bucket.len() < 4 {
+            return Ok(()); // Too small to split
+        }
+
+        // Collect vectors in this bucket
+        let bucket_vectors: Vec<(usize, Vector)> = self.vectors
+            .iter()
+            .filter_map(|(id, mv)| {
+                mv.dense.as_ref().map(|d| (*id, d.clone()))
+            })
+            .filter(|(id, vec)| {
+                self.find_best_cluster(vec).unwrap_or(usize::MAX) == bucket_id
+            })
+            .collect();
+
+        if bucket_vectors.len() < 4 {
+            return Ok(());
+        }
+
+        // Compute new centroid as mean of all vectors
+        let dim = bucket_vectors[0].1.len();
+        let mut new_centroid = vec![0.0f32; dim];
+        let n = bucket_vectors.len() as f32;
+        for (_, vec) in &bucket_vectors {
+            for (i, &v) in vec.iter().enumerate() {
+                new_centroid[i] += v / n;
+            }
+        }
+
+        // Create new bucket with the mean centroid
+        let new_bucket_id = self.buckets.len();
+        let config = self.bucket_config();
+        self.buckets.push(HybridBucket::new(new_bucket_id, new_centroid.clone(), &config));
+        self.centroids.push(new_centroid);
+
+        // Reassign vectors that are now closer to the new centroid
+        let mut to_move = Vec::new();
+        for (id, vec) in &bucket_vectors {
+            let best = self.find_best_cluster(vec)?;
+            if best == new_bucket_id {
+                to_move.push((*id, vec.clone()));
+            }
+        }
+
+        for (id, vec) in to_move {
+            if let Some(mv) = self.vectors.get(&id) {
+                self.buckets[new_bucket_id].insert_multi_modal(mv, &config)?;
+            }
+        }
+
+        Ok(())
+    }
+
     /// Create a BucketConfig from current index configuration
     fn bucket_config(&self) -> BucketConfig {
         BucketConfig {
@@ -535,6 +593,12 @@ impl VectorIndex for ApexIndex {
         self.buckets[cluster_id].insert_multi_modal(&multi_modal, &self.bucket_config())?;
         self.vectors.insert(id, multi_modal);
         self.total_vectors += 1;
+
+
+        // Check if bucket needs splitting
+        if self.buckets[cluster_id].len() > self.config.max_bucket_size() {
+            self.try_split_bucket(cluster_id)?;
+        }
 
         Ok(())
     }
