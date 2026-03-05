@@ -23,3 +23,19 @@ fn test_apex_recall_incremental() {
     // Incremental mode recall may be lower since all vectors go to one bucket
     assert!(avg_recall > 0.3, "APEX incremental recall@10 too low: {}", avg_recall);
 }
+
+
+#[test]
+fn test_apex_large_incremental() {
+    let dataset = generate_uniform_dataset(500, 16, 42);
+    
+    let mut index = ApexIndex::with_defaults(DistanceMetric::Euclidean);
+    for (id, vec) in &dataset {
+        index.insert(*id, vec.clone()).unwrap();
+    }
+    
+    // Verify we can search after many inserts
+    let results = index.search(&dataset[0].1, 5).unwrap();
+    assert!(!results.is_empty());
+    assert_eq!(results[0].id, 0);
+}
