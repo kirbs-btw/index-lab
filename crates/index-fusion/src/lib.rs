@@ -474,6 +474,16 @@ impl MiniGraph {
 /// Combines LSH bucketing with mini-graph navigation for efficient approximate
 /// nearest neighbor search.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+
+/// Validate LSH parameters
+fn validate_lsh_params(num_hyperplanes: usize, num_tables: usize) -> anyhow::Result<()> {
+    anyhow::ensure!(num_hyperplanes > 0, "LSH hyperplanes must be positive");
+    anyhow::ensure!(num_hyperplanes <= 256, "LSH hyperplanes too large (max 256)");
+    anyhow::ensure!(num_tables > 0, "LSH tables must be positive");
+    anyhow::ensure!(num_tables <= 32, "LSH tables too large (max 32)");
+    Ok(())
+}
+
 pub struct FusionIndex {
     /// Distance metric for similarity computation.
     metric: DistanceMetric,
