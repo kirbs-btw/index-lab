@@ -264,6 +264,30 @@ pub fn generate_clustered_dataset(n: usize, dim: usize, k: usize, seed: u64) -> 
     dataset
 }
 
+
+/// Test helper: assert that search results contain expected ID
+#[cfg(test)]
+pub fn assert_contains_id(results: &[ScoredPoint], expected_id: usize) {
+    assert!(
+        results.iter().any(|sp| sp.id == expected_id),
+        "Expected id {} in results {:?}",
+        expected_id,
+        results.iter().map(|sp| sp.id).collect::<Vec<_>>()
+    );
+}
+
+/// Test helper: assert results are sorted by distance
+#[cfg(test)]
+pub fn assert_sorted_by_distance(results: &[ScoredPoint]) {
+    for window in results.windows(2) {
+        assert!(
+            window[0].distance <= window[1].distance,
+            "Results not sorted: {} > {}",
+            window[0].distance, window[1].distance
+        );
+    }
+}
+
 /// Measure queries per second for a given index and query set
 pub fn measure_qps<F>(search_fn: F, queries: &[Vector], k: usize) -> f64
 where
