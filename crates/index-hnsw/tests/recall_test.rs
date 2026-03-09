@@ -29,3 +29,25 @@ fn test_hnsw_recall_uniform() {
     let avg_recall = total_recall / queries.len() as f32;
     assert!(avg_recall > 0.8, "HNSW recall@10 too low: {}", avg_recall);
 }
+
+
+#[test]
+fn test_hnsw_results_sorted() {
+    let dataset = generate_uniform_dataset(100, 16, 42);
+    
+    let config = index_hnsw::HnswConfig {
+        m_max: 16,
+        ef_construction: 100,
+        ef_search: 50,
+        ml: 1.0 / 2.0_f64.ln(),
+    };
+    
+    let mut index = index_hnsw::HnswIndex::new(DistanceMetric::Euclidean, config);
+    for (id, vec) in &dataset {
+        index.insert(*id, vec.clone()).unwrap();
+    }
+    
+    let query = vec![0.0; 16];
+    let results = index.search(&query, 10).unwrap();
+    assert_sorted_by_distance(&results);
+}
