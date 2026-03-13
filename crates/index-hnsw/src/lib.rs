@@ -526,6 +526,17 @@ impl VectorIndex for HnswIndex {
     }
 }
 
+
+/// Normalize a vector to unit length (for cosine distance)
+fn normalize_vector(v: &mut Vec<f32>) {
+    let norm: f32 = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+    if norm > 0.0 {
+        for x in v.iter_mut() {
+            *x /= norm;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
