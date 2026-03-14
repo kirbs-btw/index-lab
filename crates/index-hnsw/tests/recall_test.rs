@@ -51,3 +51,25 @@ fn test_hnsw_results_sorted() {
     let results = index.search(&query, 10).unwrap();
     assert_sorted_by_distance(&results);
 }
+
+
+#[test]
+fn test_hnsw_cosine_metric() {
+    let config = index_hnsw::HnswConfig {
+        m_max: 16,
+        ef_construction: 100,
+        ef_search: 50,
+        ml: 1.0 / 2.0_f64.ln(),
+    };
+    
+    let mut index = index_hnsw::HnswIndex::new(DistanceMetric::Cosine, config);
+    
+    // Insert normalized vectors
+    index.insert(0, vec![1.0, 0.0, 0.0]).unwrap();
+    index.insert(1, vec![0.0, 1.0, 0.0]).unwrap();
+    index.insert(2, vec![0.707, 0.707, 0.0]).unwrap();
+    
+    // Query with [1, 0, 0] — closest should be id 0, then id 2
+    let results = index.search(&vec![1.0, 0.0, 0.0], 3).unwrap();
+    assert_eq!(results[0].id, 0);
+}
