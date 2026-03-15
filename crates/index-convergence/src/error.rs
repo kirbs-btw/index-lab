@@ -1,3 +1,4 @@
+// Error pattern: using thiserror for derive(Error) + Display
 use thiserror::Error;
 
 #[derive(Debug, Error)]
