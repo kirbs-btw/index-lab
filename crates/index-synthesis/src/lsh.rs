@@ -306,4 +306,33 @@ mod tests {
         let nearest = finder.find_nearest_centroid(&query, index_core::DistanceMetric::Euclidean).unwrap();
         assert_eq!(nearest, 0); // Should find first centroid
     }
+
+
+    /// Rehash with new parameters (adaptive LSH)
+    pub fn rehash(&mut self, num_hyperplanes: usize) {
+        use rand::SeedableRng;
+        let mut rng = rand::rngs::StdRng::seed_from_u64(42);
+        let dist = rand::distributions::Uniform::new(-1.0f32, 1.0);
+        
+        self.hyperplanes = (0..num_hyperplanes)
+            .map(|_| {
+                (0..self.dimension())
+                    .map(|_| {
+                        use rand::Rng;
+                        rng.sample(dist)
+                    })
+                    .collect()
+            })
+            .collect();
+    }
+    
+    /// Get the current dimension
+    fn dimension(&self) -> usize {
+        if self.hyperplanes.is_empty() {
+            0
+        } else {
+            self.hyperplanes[0].len()
+        }
+    }
+
 }
