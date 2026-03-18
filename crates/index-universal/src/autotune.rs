@@ -205,4 +205,26 @@ impl AutoTuner {
         // TODO: Implement deserialization
         Err(crate::error::UniversalError::SerializationError("Not implemented".to_string()))
     }
+
+
+    /// Get the adapted ef_search parameter based on recent performance
+    pub fn get_adapted_ef(&self) -> usize {
+        if self.recall_scores.is_empty() {
+            return 50;
+        }
+        
+        let avg_recall: f32 = self.recall_scores.iter().sum::<f32>() 
+            / self.recall_scores.len() as f32;
+        
+        if avg_recall < 0.8 {
+            // Recall too low, increase ef
+            (self.ef_search as f32 * 1.5) as usize
+        } else if avg_recall > 0.95 {
+            // Recall high enough, can reduce ef for speed
+            (self.ef_search as f32 * 0.8) as usize
+        } else {
+            self.ef_search
+        }
+    }
+
 }
