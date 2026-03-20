@@ -94,9 +94,9 @@ impl ScenarioKind {
 }
 
 pub fn print_available() {
-    println!("Available benchmark scenarios:");
+    // println!("Available benchmark scenarios:");
     for details in ScenarioKind::list_details() {
-        println!(
+        // println!(
             "  {:<15} {:<26} dim={:<4} points={:<7} queries={:<5} limit={:<3} metric={:?}",
             details.slug,
             details.label,
@@ -106,7 +106,7 @@ pub fn print_available() {
             details.config.limit,
             details.config.metric
         );
-        println!("      {}", details.description);
+        // println!("      {}", details.description);
     }
 }
 

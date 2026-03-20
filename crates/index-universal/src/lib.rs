@@ -85,7 +85,7 @@ impl UniversalIndex {
         self.dimension = Some(dimension);
         let n = dataset.len();
         
-        println!("Building UNIVERSAL index: {} vectors, {} dims (lazy construction: {})", 
+        // println!("Building UNIVERSAL index: {} vectors, {} dims (lazy construction: {})", 
                  n, dimension, self.config.lazy_construction);
         
         // Store vectors
@@ -113,7 +113,7 @@ impl UniversalIndex {
         
         self.total_vectors = n;
         
-        println!("UNIVERSAL index build complete");
+        // println!("UNIVERSAL index build complete");
         Ok(())
     }
     

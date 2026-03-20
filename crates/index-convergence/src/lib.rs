@@ -214,7 +214,7 @@ impl ConvergenceIndex {
             .unwrap_or_else(|| (n as f32).sqrt().ceil() as usize)
             .max(1);
 
-        println!("Building CONVERGENCE index: {} vectors, {} clusters, {} dims", n, num_clusters, dimension);
+        // println!("Building CONVERGENCE index: {} vectors, {} clusters, {} dims", n, num_clusters, dimension);
 
         // Initialize adaptive LSH components (ACTUALLY USED)
         let centroid_finder = AdaptiveCentroidFinder::new(
@@ -369,7 +369,7 @@ impl ConvergenceIndex {
         self.buckets = buckets;
         self.total_vectors = n;
 
-        println!("CONVERGENCE index build complete");
+        // println!("CONVERGENCE index build complete");
         Ok(())
     }
 

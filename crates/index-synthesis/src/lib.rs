@@ -149,7 +149,7 @@ impl SynthesisIndex {
             .unwrap_or_else(|| (n as f32).sqrt().ceil() as usize)
             .max(1);
 
-        println!("Building SYNTHESIS index: {} vectors, {} clusters, {} dims", n, num_clusters, dimension);
+        // println!("Building SYNTHESIS index: {} vectors, {} clusters, {} dims", n, num_clusters, dimension);
 
         // Step 1: Initialize LSH components (ACTUALLY USED)
         let centroid_finder = CentroidFinder::new(
@@ -180,7 +180,7 @@ impl SynthesisIndex {
             self.config.seed,
         )?;
 
-        println!("K-Means clustering complete: {} centroids", centroids.len());
+        // println!("K-Means clustering complete: {} centroids", centroids.len());
 
         // Step 3: Add centroids to LSH centroid finder (ACTUALLY USED)
         if let Some(ref mut finder) = self.centroid_finder {
@@ -306,7 +306,7 @@ impl SynthesisIndex {
         // Step 8: Train router
         self.train_router(&dataset)?;
 
-        println!("SYNTHESIS index build complete");
+        // println!("SYNTHESIS index build complete");
         Ok(())
     }
 
@@ -657,7 +657,7 @@ impl VectorIndex for SynthesisIndex {
 
         // Check for distribution shift and ACTUALLY TRIGGER adaptation
         if self.shift_detector.detect_shift()? {
-            println!("Distribution shift detected - retraining router");
+            // println!("Distribution shift detected - retraining router");
             // Retrain router with recent vectors
             let recent_vectors: Vec<_> = self.vectors.values().take(1000).collect();
             for vector in recent_vectors {

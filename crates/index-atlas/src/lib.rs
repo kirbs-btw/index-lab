@@ -90,7 +90,7 @@ impl AtlasIndex {
             .unwrap_or_else(|| (n as f32).sqrt().ceil() as usize)
             .max(1);
 
-        println!(
+        // println!(
             "Building ATLAS index: {} vectors, {} clusters, {} dims",
             n, num_clusters, dimension
         );
@@ -99,7 +99,7 @@ impl AtlasIndex {
         let centroids =
             kmeans_clustering(&vectors, num_clusters, config.max_kmeans_iters, config.seed)?;
 
-        println!("K-Means clustering complete: {} centroids", centroids.len());
+        // println!("K-Means clustering complete: {} centroids", centroids.len());
 
         // Step 2: Build centroid HNSW graph
         let mut centroid_graph = HnswIndex::new(
@@ -118,7 +118,7 @@ impl AtlasIndex {
                 .map_err(|e| AtlasError::HnswError(e.to_string()))?;
         }
 
-        println!("Centroid graph built");
+        // println!("Centroid graph built");
 
         // Step 3: Assign vectors to buckets
         let bucket_config = BucketConfig {
@@ -156,7 +156,7 @@ impl AtlasIndex {
             buckets[best_cluster].insert(*id, vector.clone())?;
         }
 
-        println!("Vectors assigned to buckets");
+        // println!("Vectors assigned to buckets");
 
         // Step 4: Train router on initial assignments
         let router = ClusterRouter::new(
@@ -167,7 +167,7 @@ impl AtlasIndex {
             config.seed,
         );
 
-        println!("Router initialized");
+        // println!("Router initialized");
 
         let mut index = Self {
             router,
@@ -196,7 +196,7 @@ impl AtlasIndex {
             .unwrap_or(vectors.len())
             .min(vectors.len());
 
-        println!("Training router on {} samples", sample_size);
+        // println!("Training router on {} samples", sample_size);
 
         // Train for a few epochs
         for _epoch in 0..5 {
@@ -209,7 +209,7 @@ impl AtlasIndex {
             }
         }
 
-        println!(
+        // println!(
             "Router training complete: {} samples processed",
             self.router.training_samples()
         );

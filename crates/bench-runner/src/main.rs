@@ -338,11 +338,11 @@ where
         // Exhaustive index (linear) always has perfect recall
         (1.0, 1.0, 1.0)
     } else {
-        println!("Computing ground truth with exhaustive search...");
+        // println!("Computing ground truth with exhaustive search...");
         let ground_truth_start = Instant::now();
         let ground_truth = compute_ground_truth(dataset, queries, runtime.metric, runtime.limit)?;
         let ground_truth_time = ground_truth_start.elapsed();
-        println!("Ground truth computed in {:.2?}", ground_truth_time);
+        // println!("Ground truth computed in {:.2?}", ground_truth_time);
 
         let (avg_recall, min_recall, max_recall) =
             compute_recall_metrics(&all_results, &ground_truth, runtime.limit);
@@ -377,7 +377,7 @@ fn main() -> Result<()> {
 
     if let Some(kind) = cli.scenario {
         let details = kind.details();
-        println!(
+        // println!(
             "Using scenario '{}' – {}",
             details.slug, details.description
         );
@@ -404,7 +404,7 @@ fn main() -> Result<()> {
 
     if let Some(path) = cli.export_testdata.as_deref() {
         export_testdata(path, &runtime, &dataset, &queries)?;
-        println!("Wrote test data to {}", path.display());
+        // println!("Wrote test data to {}", path.display());
     }
 
     // Run benchmark with the selected index type
@@ -413,13 +413,13 @@ fn main() -> Result<()> {
             run_benchmark(
                 "linear",
                 |load_path| {
-                    println!("Loading linear index from {}...", load_path.display());
+                    // println!("Loading linear index from {}...", load_path.display());
                     let load_start = Instant::now();
                     let loaded = LinearIndex::load(load_path).with_context(|| {
                         format!("failed to load index from {}", load_path.display())
                     })?;
                     let load_time = load_start.elapsed();
-                    println!(
+                    // println!(
                         "Loaded index in {:.2?} ({} vectors, metric: {:?})",
                         load_time,
                         loaded.len(),
@@ -439,7 +439,7 @@ fn main() -> Result<()> {
                         inner.save(path).with_context(|| {
                             format!("failed to save index to {}", path.display())
                         })?;
-                        println!(
+                        // println!(
                             "Saved linear index to {} ({} vectors)",
                             path.display(),
                             inner.len()
@@ -458,13 +458,13 @@ fn main() -> Result<()> {
             run_benchmark(
                 "HNSW",
                 |load_path| {
-                    println!("Loading HNSW index from {}...", load_path.display());
+                    // println!("Loading HNSW index from {}...", load_path.display());
                     let load_start = Instant::now();
                     let loaded = HnswIndex::load(load_path).with_context(|| {
                         format!("failed to load index from {}", load_path.display())
                     })?;
                     let load_time = load_start.elapsed();
-                    println!(
+                    // println!(
                         "Loaded index in {:.2?} ({} vectors, metric: {:?})",
                         load_time,
                         loaded.len(),
@@ -484,7 +484,7 @@ fn main() -> Result<()> {
                         inner.save(path).with_context(|| {
                             format!("failed to save index to {}", path.display())
                         })?;
-                        println!(
+                        // println!(
                             "Saved HNSW index to {} ({} vectors)",
                             path.display(),
                             inner.len()
@@ -503,13 +503,13 @@ fn main() -> Result<()> {
             run_benchmark(
                 "IVF",
                 |load_path| {
-                    println!("Loading IVF index from {}...", load_path.display());
+                    // println!("Loading IVF index from {}...", load_path.display());
                     let load_start = Instant::now();
                     let loaded = IvfIndex::load(load_path).with_context(|| {
                         format!("failed to load index from {}", load_path.display())
                     })?;
                     let load_time = load_start.elapsed();
-                    println!(
+                    // println!(
                         "Loaded index in {:.2?} ({} vectors, metric: {:?})",
                         load_time,
                         loaded.len(),
@@ -529,7 +529,7 @@ fn main() -> Result<()> {
                         inner.save(path).with_context(|| {
                             format!("failed to save index to {}", path.display())
                         })?;
-                        println!(
+                        // println!(
                             "Saved IVF index to {} ({} vectors)",
                             path.display(),
                             inner.len()
@@ -548,13 +548,13 @@ fn main() -> Result<()> {
             run_benchmark(
                 "PQ",
                 |load_path| {
-                    println!("Loading PQ index from {}...", load_path.display());
+                    // println!("Loading PQ index from {}...", load_path.display());
                     let load_start = Instant::now();
                     let loaded = PqIndex::load(load_path).with_context(|| {
                         format!("failed to load index from {}", load_path.display())
                     })?;
                     let load_time = load_start.elapsed();
-                    println!(
+                    // println!(
                         "Loaded index in {:.2?} ({} vectors, metric: {:?})",
                         load_time,
                         loaded.len(),
@@ -574,7 +574,7 @@ fn main() -> Result<()> {
                         inner.save(path).with_context(|| {
                             format!("failed to save index to {}", path.display())
                         })?;
-                        println!(
+                        // println!(
                             "Saved PQ index to {} ({} vectors)",
                             path.display(),
                             inner.len()
@@ -593,13 +593,13 @@ fn main() -> Result<()> {
             run_benchmark(
                 "LIM",
                 |load_path| {
-                    println!("Loading LIM index from {}...", load_path.display());
+                    // println!("Loading LIM index from {}...", load_path.display());
                     let load_start = Instant::now();
                     let loaded = LimIndex::load(load_path).with_context(|| {
                         format!("failed to load index from {}", load_path.display())
                     })?;
                     let load_time = load_start.elapsed();
-                    println!(
+                    // println!(
                         "Loaded index in {:.2?} ({} vectors, metric: {:?})",
                         load_time,
                         loaded.len(),
@@ -619,7 +619,7 @@ fn main() -> Result<()> {
                         inner.save(path).with_context(|| {
                             format!("failed to save index to {}", path.display())
                         })?;
-                        println!(
+                        // println!(
                             "Saved LIM index to {} ({} vectors)",
                             path.display(),
                             inner.len()
@@ -638,13 +638,13 @@ fn main() -> Result<()> {
             run_benchmark(
                 "Hybrid",
                 |load_path| {
-                    println!("Loading Hybrid index from {}...", load_path.display());
+                    // println!("Loading Hybrid index from {}...", load_path.display());
                     let load_start = Instant::now();
                     let loaded = HybridIndex::load(load_path).with_context(|| {
                         format!("failed to load index from {}", load_path.display())
                     })?;
                     let load_time = load_start.elapsed();
-                    println!(
+                    // println!(
                         "Loaded index in {:.2?} ({} vectors, metric: {:?})",
                         load_time,
                         loaded.len(),
@@ -664,7 +664,7 @@ fn main() -> Result<()> {
                         inner.save(path).with_context(|| {
                             format!("failed to save index to {}", path.display())
                         })?;
-                        println!(
+                        // println!(
                             "Saved Hybrid index to {} ({} vectors)",
                             path.display(),
                             inner.len()
@@ -683,13 +683,13 @@ fn main() -> Result<()> {
             run_benchmark(
                 "SEER",
                 |load_path| {
-                    println!("Loading SEER index from {}...", load_path.display());
+                    // println!("Loading SEER index from {}...", load_path.display());
                     let load_start = Instant::now();
                     let loaded = SeerIndex::load(load_path).with_context(|| {
                         format!("failed to load index from {}", load_path.display())
                     })?;
                     let load_time = load_start.elapsed();
-                    println!(
+                    // println!(
                         "Loaded index in {:.2?} ({} vectors, metric: {:?})",
                         load_time,
                         loaded.len(),
@@ -709,7 +709,7 @@ fn main() -> Result<()> {
                         inner.save(path).with_context(|| {
                             format!("failed to save index to {}", path.display())
                         })?;
-                        println!(
+                        // println!(
                             "Saved SEER index to {} ({} vectors)",
                             path.display(),
                             inner.len()
@@ -728,13 +728,13 @@ fn main() -> Result<()> {
             run_benchmark(
                 "SWIFT",
                 |load_path| {
-                    println!("Loading SWIFT index from {}...", load_path.display());
+                    // println!("Loading SWIFT index from {}...", load_path.display());
                     let load_start = Instant::now();
                     let loaded = SwiftIndex::load(load_path).with_context(|| {
                         format!("failed to load index from {}", load_path.display())
                     })?;
                     let load_time = load_start.elapsed();
-                    println!(
+                    // println!(
                         "Loaded index in {:.2?} ({} vectors, metric: {:?})",
                         load_time,
                         loaded.len(),
@@ -754,7 +754,7 @@ fn main() -> Result<()> {
                         inner.save(path).with_context(|| {
                             format!("failed to save index to {}", path.display())
                         })?;
-                        println!(
+                        // println!(
                             "Saved SWIFT index to {} ({} vectors)",
                             path.display(),
                             inner.len()
@@ -773,13 +773,13 @@ fn main() -> Result<()> {
             run_benchmark(
                 "PRISM",
                 |load_path| {
-                    println!("Loading PRISM index from {}...", load_path.display());
+                    // println!("Loading PRISM index from {}...", load_path.display());
                     let load_start = Instant::now();
                     let loaded = PrismIndex::load(load_path).with_context(|| {
                         format!("failed to load index from {}", load_path.display())
                     })?;
                     let load_time = load_start.elapsed();
-                    println!(
+                    // println!(
                         "Loaded index in {:.2?} ({} vectors, metric: {:?})",
                         load_time,
                         loaded.len(),
@@ -799,7 +799,7 @@ fn main() -> Result<()> {
                         inner.save(path).with_context(|| {
                             format!("failed to save index to {}", path.display())
                         })?;
-                        println!(
+                        // println!(
                             "Saved PRISM index to {} ({} vectors)",
                             path.display(),
                             inner.len()
@@ -818,13 +818,13 @@ fn main() -> Result<()> {
             run_benchmark(
                 "NEXUS",
                 |load_path| {
-                    println!("Loading NEXUS index from {}...", load_path.display());
+                    // println!("Loading NEXUS index from {}...", load_path.display());
                     let load_start = Instant::now();
                     let loaded = NexusIndex::load(load_path).with_context(|| {
                         format!("failed to load index from {}", load_path.display())
                     })?;
                     let load_time = load_start.elapsed();
-                    println!(
+                    // println!(
                         "Loaded index in {:.2?} ({} vectors, metric: {:?})",
                         load_time,
                         loaded.len(),
@@ -844,7 +844,7 @@ fn main() -> Result<()> {
                         inner.save(path).with_context(|| {
                             format!("failed to save index to {}", path.display())
                         })?;
-                        println!(
+                        // println!(
                             "Saved NEXUS index to {} ({} vectors)",
                             path.display(),
                             inner.len()
@@ -863,13 +863,13 @@ fn main() -> Result<()> {
             run_benchmark(
                 "FUSION",
                 |load_path| {
-                    println!("Loading FUSION index from {}...", load_path.display());
+                    // println!("Loading FUSION index from {}...", load_path.display());
                     let load_start = Instant::now();
                     let loaded = FusionIndex::load(load_path).with_context(|| {
                         format!("failed to load index from {}", load_path.display())
                     })?;
                     let load_time = load_start.elapsed();
-                    println!(
+                    // println!(
                         "Loaded index in {:.2?} ({} vectors, metric: {:?})",
                         load_time,
                         loaded.len(),
@@ -889,7 +889,7 @@ fn main() -> Result<()> {
                         inner.save(path).with_context(|| {
                             format!("failed to save index to {}", path.display())
                         })?;
-                        println!(
+                        // println!(
                             "Saved FUSION index to {} ({} vectors)",
                             path.display(),
                             inner.len()
@@ -908,13 +908,13 @@ fn main() -> Result<()> {
             run_benchmark(
                 "VORTEX",
                 |load_path| {
-                    println!("Loading VORTEX index from {}...", load_path.display());
+                    // println!("Loading VORTEX index from {}...", load_path.display());
                     let load_start = Instant::now();
                     let loaded = VortexIndex::load(load_path).with_context(|| {
                         format!("failed to load index from {}", load_path.display())
                     })?;
                     let load_time = load_start.elapsed();
-                    println!(
+                    // println!(
                         "Loaded index in {:.2?} ({} vectors, metric: {:?})",
                         load_time,
                         loaded.len(),
@@ -934,7 +934,7 @@ fn main() -> Result<()> {
                         inner.save(path).with_context(|| {
                             format!("failed to save index to {}", path.display())
                         })?;
-                        println!(
+                        // println!(
                             "Saved VORTEX index to {} ({} vectors)",
                             path.display(),
                             inner.len()
@@ -953,13 +953,13 @@ fn main() -> Result<()> {
             run_benchmark(
                 "ARMI",
                 |load_path| {
-                    println!("Loading ARMI index from {}...", load_path.display());
+                    // println!("Loading ARMI index from {}...", load_path.display());
                     let load_start = Instant::now();
                     let loaded = ArmiIndex::load(load_path).with_context(|| {
                         format!("failed to load index from {}", load_path.display())
                     })?;
                     let load_time = load_start.elapsed();
-                    println!(
+                    // println!(
                         "Loaded index in {:.2?} ({} vectors, metric: {:?})",
                         load_time,
                         loaded.len(),
@@ -979,7 +979,7 @@ fn main() -> Result<()> {
                         inner.save(path).with_context(|| {
                             format!("failed to save index to {}", path.display())
                         })?;
-                        println!(
+                        // println!(
                             "Saved ARMI index to {} ({} vectors)",
                             path.display(),
                             inner.len()
@@ -998,13 +998,13 @@ fn main() -> Result<()> {
             run_benchmark(
                 "APEX",
                 |load_path| {
-                    println!("Loading APEX index from {}...", load_path.display());
+                    // println!("Loading APEX index from {}...", load_path.display());
                     let load_start = Instant::now();
                     let loaded = ApexIndex::load(load_path).with_context(|| {
                         format!("failed to load index from {}", load_path.display())
                     })?;
                     let load_time = load_start.elapsed();
-                    println!(
+                    // println!(
                         "Loaded index in {:.2?} ({} vectors, metric: {:?})",
                         load_time,
                         loaded.len(),
@@ -1024,7 +1024,7 @@ fn main() -> Result<()> {
                         inner.save(path).with_context(|| {
                             format!("failed to save index to {}", path.display())
                         })?;
-                        println!(
+                        // println!(
                             "Saved APEX index to {} ({} vectors)",
                             path.display(),
                             inner.len()
@@ -1043,13 +1043,13 @@ fn main() -> Result<()> {
             run_benchmark(
                 "SYNTHESIS",
                 |load_path| {
-                    println!("Loading SYNTHESIS index from {}...", load_path.display());
+                    // println!("Loading SYNTHESIS index from {}...", load_path.display());
                     let load_start = Instant::now();
                     let loaded = SynthesisIndex::load(load_path).with_context(|| {
                         format!("failed to load index from {}", load_path.display())
                     })?;
                     let load_time = load_start.elapsed();
-                    println!(
+                    // println!(
                         "Loaded index in {:.2?} ({} vectors, metric: {:?})",
                         load_time,
                         loaded.len(),
@@ -1069,7 +1069,7 @@ fn main() -> Result<()> {
                         inner.save(path).with_context(|| {
                             format!("failed to save index to {}", path.display())
                         })?;
-                        println!(
+                        // println!(
                             "Saved SYNTHESIS index to {} ({} vectors)",
                             path.display(),
                             inner.len()
@@ -1088,13 +1088,13 @@ fn main() -> Result<()> {
             run_benchmark(
                 "CONVERGENCE",
                 |load_path| {
-                    println!("Loading CONVERGENCE index from {}...", load_path.display());
+                    // println!("Loading CONVERGENCE index from {}...", load_path.display());
                     let load_start = Instant::now();
                     let loaded = ConvergenceIndex::load(load_path).with_context(|| {
                         format!("failed to load index from {}", load_path.display())
                     })?;
                     let load_time = load_start.elapsed();
-                    println!(
+                    // println!(
                         "Loaded index in {:.2?} ({} vectors, metric: {:?})",
                         load_time,
                         loaded.len(),
@@ -1114,7 +1114,7 @@ fn main() -> Result<()> {
                         inner.save(path).with_context(|| {
                             format!("failed to save index to {}", path.display())
                         })?;
-                        println!(
+                        // println!(
                             "Saved CONVERGENCE index to {} ({} vectors)",
                             path.display(),
                             inner.len()
@@ -1133,13 +1133,13 @@ fn main() -> Result<()> {
             run_benchmark(
                 "ZENITH",
                 |load_path| {
-                    println!("Loading ZENITH index from {}...", load_path.display());
+                    // println!("Loading ZENITH index from {}...", load_path.display());
                     let load_start = Instant::now();
                     let loaded = ZenithIndex::load(load_path).with_context(|| {
                         format!("failed to load index from {}", load_path.display())
                     })?;
                     let load_time = load_start.elapsed();
-                    println!(
+                    // println!(
                         "Loaded index in {:.2?} ({} vectors, metric: {:?})",
                         load_time,
                         loaded.len(),
@@ -1159,7 +1159,7 @@ fn main() -> Result<()> {
                         inner.save(path).with_context(|| {
                             format!("failed to save index to {}", path.display())
                         })?;
-                        println!(
+                        // println!(
                             "Saved ZENITH index to {} ({} vectors)",
                             path.display(),
                             inner.len()
@@ -1192,7 +1192,7 @@ fn print_results(
     recall_metrics: (f64, f64, f64),
 ) -> Result<()> {
     if let Some(first) = first_result {
-        println!(
+        // println!(
             "First query result ids: {:?}",
             first.iter().map(|point| point.id).collect::<Vec<_>>()
         );
@@ -1232,7 +1232,7 @@ fn print_results(
 
     let (avg_recall, min_recall, max_recall) = recall_metrics;
 
-    println!(
+    // println!(
         "Build: {:.2?} | Avg search: {:.2} us | QPS: {:.1} | Dataset: {:.2} MiB | Metric: {:?} | Index: {} | Points: {} | Queries: {} | Dim: {} | Limit: {}{}",
         stats.build_time,
         stats.avg_search_micros,
@@ -1248,7 +1248,7 @@ fn print_results(
     );
 
     if !matches!(index, IndexWrapper::Linear(_) | IndexWrapper::Convergence(_)) {
-        println!(
+        // println!(
             "Recall@{}: avg={:.4} | min={:.4} | max={:.4}",
             runtime.limit, avg_recall, min_recall, max_recall
         );
@@ -1256,7 +1256,7 @@ fn print_results(
 
     if let Some(path) = cli.report_json.as_deref() {
         write_report(path, runtime, &stats, recall_metrics)?;
-        println!("Wrote benchmark report to {}", path.display());
+        // println!("Wrote benchmark report to {}", path.display());
     }
 
     Ok(())
