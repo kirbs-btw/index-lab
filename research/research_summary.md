@@ -1479,3 +1479,32 @@ UNIVERSAL should beat HNSW (current SOTA) on multiple dimensions:
 4. **Scale**: Test on large datasets, add distributed support
 
 **Conclusion**: We have created novel algorithms with significant research contributions. UNIVERSAL represents a paradigm shift toward simplicity through intelligence, with theoretical advantages over current SOTA. Practical validation through benchmarking is the critical next step.
+
+
+## March 2026 Updates
+
+### Bug Fixes
+- Fixed APEX incremental insert routing (centroid graph not populated)
+- Added bucket splitting for APEX incremental mode
+- Reduced convergence online router learning rate (was diverging)
+- Added LSH parameter validation to Fusion
+
+### Testing
+- Added recall benchmarks for HNSW, IVF, and APEX
+- Added delete/update operation tests for APEX
+- Added cosine distance tests for HNSW
+- Added linear scan baseline with perfect recall assertion
+- Verified result ordering across algorithms
+
+### Documentation
+- Benchmark methodology and metrics defined
+- Algorithm comparison table
+- Known weaknesses documented
+- Convergence vs Synthesis analysis
+
+### Infrastructure
+- Added recall_at_k, brute_force_knn, QPS measurement to index-core
+- Added dataset generators (uniform, clustered)
+- Added shared test assertion helpers
+- Standardized error pattern documentation
+- Cleaned up warnings and dead code across all crates
